@@ -42,3 +42,5 @@ dist/
 *.db
 *.sqlite
 *.sqlite3
+
+p5_current_context.txt
