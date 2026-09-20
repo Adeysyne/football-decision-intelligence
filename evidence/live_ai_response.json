@@ -1,0 +1,172 @@
+{
+  "decision_brief": {
+    "scenario_summary": "Sheffield FC vs Example United: 1-0 at minute 68. Problem: Their right winger is repeatedly getting behind our left-back.",
+    "scenario_profile": "protect_lead",
+    "generated_from": "engine_options",
+    "score_weights": {
+      "defensive_stability": 1.5,
+      "attacking_threat": 0.7,
+      "wide_area_control": 1.25,
+      "midfield_control": 0.9,
+      "transition_security": 1.4,
+      "personnel_fit": 1.1,
+      "tactical_continuity": 0.8,
+      "objective_alignment": 1.5
+    },
+    "options": [
+      {
+        "option_id": "option_1",
+        "label": "Keep shape and add defensive support",
+        "description": "Remain in 4-2-3-1, increase support around the threatened area and protect vulnerable duels.",
+        "category": "instruction",
+        "scores": {
+          "defensive_stability": 3,
+          "attacking_threat": 4,
+          "wide_area_control": 4,
+          "midfield_control": 4,
+          "transition_security": 3,
+          "personnel_fit": 3,
+          "tactical_continuity": 5,
+          "objective_alignment": 3
+        },
+        "total_score": 29,
+        "weighted_score": 3.49,
+        "strengths": [
+          "Preserves tactical familiarity.",
+          "Requires relatively little structural disruption."
+        ],
+        "risks": [
+          "The underlying personnel or structural problem may remain."
+        ],
+        "assumptions": [
+          "The analysis is based only on information supplied by the coach.",
+          "No professional tracking data is being used at this stage.",
+          "Players can adapt their responsibilities without losing coordination."
+        ]
+      },
+      {
+        "option_id": "option_2",
+        "label": "Make a targeted defensive personnel change",
+        "description": "Replace or protect the vulnerable defensive player while preserving the overall structure.",
+        "category": "personnel",
+        "scores": {
+          "defensive_stability": 4,
+          "attacking_threat": 3,
+          "wide_area_control": 4,
+          "midfield_control": 3,
+          "transition_security": 3,
+          "personnel_fit": 5,
+          "tactical_continuity": 4,
+          "objective_alignment": 5
+        },
+        "total_score": 31,
+        "weighted_score": 3.96,
+        "strengths": [
+          "Targets a specific problem.",
+          "Preserves much of the existing team structure."
+        ],
+        "risks": [
+          "The replacement may not reproduce the outgoing player's qualities.",
+          "A substitution reduces remaining options."
+        ],
+        "assumptions": [
+          "The analysis is based only on information supplied by the coach.",
+          "No professional tracking data is being used at this stage.",
+          "A suitable replacement is available and physically ready."
+        ]
+      },
+      {
+        "option_id": "option_3",
+        "label": "Use a more conservative structure",
+        "description": "Create an additional defensive layer and reduce transition exposure.",
+        "category": "structural",
+        "scores": {
+          "defensive_stability": 5,
+          "attacking_threat": 3,
+          "wide_area_control": 5,
+          "midfield_control": 3,
+          "transition_security": 5,
+          "personnel_fit": 3,
+          "tactical_continuity": 2,
+          "objective_alignment": 3
+        },
+        "total_score": 29,
+        "weighted_score": 3.82,
+        "strengths": [
+          "Provides stronger defensive protection.",
+          "Improves transition security."
+        ],
+        "risks": [
+          "May reduce attacking presence.",
+          "The team may become too passive."
+        ],
+        "assumptions": [
+          "The analysis is based only on information supplied by the coach.",
+          "No professional tracking data is being used at this stage.",
+          "The team can execute the structural adjustment with sufficient familiarity."
+        ]
+      }
+    ],
+    "leading_option_id": "option_2",
+    "leading_option_reason": "Make a targeted defensive personnel change currently has the highest objective-aware weighted score (3.96/5) because the scenario prioritises defensive stability, transition security and protecting the current result. This is a decision-support ranking, not a claim that the option is objectively correct.",
+    "main_tradeoff": "A targeted personnel change can remove a specific risk while preserving structure, but it uses a substitution.",
+    "monitor_next": [
+      "Whether the original tactical problem continues after the intervention.",
+      "Whether the change damages the team's ability to progress the ball.",
+      "Repeated overloads, overlaps or 2v1 situations on the threatened flank.",
+      "Whether the booked defender is still being isolated into repeated duels.",
+      "Whether the team becomes too deep and loses counter-attacking outlets."
+    ],
+    "confidence": "medium",
+    "scoring_note": "Raw dimension scores use a transparent 1-5 rule-based scale. Weighted scores change dimension importance according to the detected objective. They are decision-support signals, not probabilities or claims of objective tactical truth.",
+    "coach_decision_required": true
+  },
+  "ai_reasoning": {
+    "summary": "The engine ranks option_2 first (3.96), with option_3 close behind (3.82) and option_1 third (3.49). The ranking favours addressing the exposed left side while retaining much of the current structure. These are rule-based decision-support signals, not probabilities; the coach remains responsible for the final decision.",
+    "option_explanations": [
+      {
+        "option_id": "option_2",
+        "explanation": "Make a targeted defensive personnel change while preserving the overall shape. This directly addresses the repeated threat to the left-back, accounts for the left-back being booked, and has the highest objective-alignment and personnel-fit scores. It should retain more attacking structure than a major reshaping.",
+        "main_risk": "It uses a substitution, and the replacement may not reproduce the outgoing player's qualities. The right winger and overlapping right-back could still create problems if the wider defensive coordination is unchanged.",
+        "assumption_to_check": "Confirm that a suitable replacement is available and physically ready, and clarify whether the change is replacing the left-back or protecting that area through another personnel adjustment."
+      },
+      {
+        "option_id": "option_3",
+        "explanation": "Use a more conservative structure with an additional defensive layer. This offers the strongest defensive stability, wide-area control and transition security scores, which may help protect the 1-0 lead and reduce exposure to further 2v1 situations.",
+        "main_risk": "The team may become too passive, lose attacking outlets and struggle to progress the ball. Its lower tactical-continuity score also indicates a greater execution challenge.",
+        "assumption_to_check": "Confirm that the players understand and can execute the structural adjustment with sufficient familiarity, particularly when defending the left flank and launching counter-attacks."
+      },
+      {
+        "option_id": "option_1",
+        "explanation": "Remain in the 4-2-3-1 and add support around the threatened area. This preserves familiarity, attacking threat and tactical continuity while attempting to reduce the winger's access to the space behind the left-back.",
+        "main_risk": "The underlying personnel issue may remain: the booked left-back could continue to face repeated isolation, especially with the opponent's right-back overlapping.",
+        "assumption_to_check": "Confirm that players can adjust their responsibilities quickly enough to provide consistent support without disrupting midfield coverage or attacking transitions."
+      }
+    ],
+    "missing_information": [
+      "Which available substitute is intended for the left side and whether that player is match-ready.",
+      "Whether the repeated breakthroughs come from the left-back's positioning, insufficient cover, or the winger's movement behind the defensive line.",
+      "How effectively Sheffield FC can retain possession and counter-attack after becoming more conservative.",
+      "Whether the opponent's right-back is consistently creating a 2v1 or only beginning to overlap."
+    ],
+    "questions_for_coach": [
+      "Is the priority to replace the booked left-back, add cover nearby, or change the wider defensive structure?",
+      "Can the left-sided midfielder or winger reliably track the overlapping right-back without weakening the counter-attack?",
+      "If option_2 is chosen, which available player best fits the required defensive role?",
+      "What is the trigger for further adjustment if the right winger continues getting behind the left side?"
+    ]
+  },
+  "model": "gpt-5.6-luna",
+  "usage": {
+    "input_tokens": 1517,
+    "input_tokens_details": {
+      "cache_write_tokens": 1514,
+      "cached_tokens": 0
+    },
+    "output_tokens": 634,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 2151
+  }
+}
