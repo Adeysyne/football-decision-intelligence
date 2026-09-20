@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     DateTime,
+    ForeignKey,
     Integer,
     JSON,
     String,
@@ -90,6 +91,53 @@ class ScenarioRecord(Base):
     )
 
     scenario_payload: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+    )
+
+
+class DecisionRecord(Base):
+    __tablename__ = "decisions"
+
+    decision_id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(
+            uuid4()
+        ),
+    )
+
+    scenario_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey(
+            "scenarios.scenario_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    scenario_profile: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+    )
+
+    leading_option_id: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    generated_from: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+    )
+
+    decision_payload: Mapped[dict] = mapped_column(
         JSON,
         nullable=False,
     )
