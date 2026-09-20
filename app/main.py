@@ -1,24 +1,56 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
-from app.api.ai_analysis import router as ai_router
-from app.api.decisions import router as decisions_router
-from app.api.scenarios import router as scenarios_router
+from app.api.ai_analysis import (
+    router as ai_router,
+)
+from app.api.decisions import (
+    router as decisions_router,
+)
+from app.api.scenarios import (
+    router as scenarios_router,
+)
 from app.core.config import get_settings
+from app.db.database import (
+    create_database_tables,
+)
 
 
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(
+    app: FastAPI,
+):
+    create_database_tables()
+
+    yield
+
 
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description=(
-        "Low-data tactical decision support for football coaches."
+        "Low-data tactical decision support "
+        "for football coaches."
     ),
+    lifespan=lifespan,
 )
 
-app.include_router(scenarios_router)
-app.include_router(decisions_router)
-app.include_router(ai_router)
+
+app.include_router(
+    scenarios_router
+)
+
+app.include_router(
+    decisions_router
+)
+
+app.include_router(
+    ai_router
+)
 
 
 @app.get("/")
