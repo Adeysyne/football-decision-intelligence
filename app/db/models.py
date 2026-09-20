@@ -141,3 +141,103 @@ class DecisionRecord(Base):
         JSON,
         nullable=False,
     )
+
+
+class CoachSelectionRecord(Base):
+    __tablename__ = "coach_selections"
+
+    selection_id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(
+            uuid4()
+        ),
+    )
+
+    decision_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey(
+            "decisions.decision_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    selected_option_id: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    selected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    rationale: Mapped[
+        str | None
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+
+class DecisionOutcomeRecord(Base):
+    __tablename__ = "decision_outcomes"
+
+    outcome_id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(
+            uuid4()
+        ),
+    )
+
+    decision_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey(
+            "decisions.decision_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    final_our_score: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    final_opponent_score: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    coach_assessment: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+    )
+
+    outcome_summary: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+
+    observed_effects: Mapped[list] = mapped_column(
+        JSON,
+        nullable=False,
+    )
+
+    next_time_notes: Mapped[
+        str | None
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )

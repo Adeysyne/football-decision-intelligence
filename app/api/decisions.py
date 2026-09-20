@@ -10,11 +10,22 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.decision import DecisionBrief
 from app.models.persistence import (
+    CoachSelectionCreate,
+    CoachSelectionResponse,
+    DecisionFeedbackResponse,
+    DecisionOutcomeCreate,
+    DecisionOutcomeResponse,
     PersistedDecisionResponse,
 )
 from app.models.scenario import ScenarioCreate
 from app.services.decision_engine import (
     build_decision_brief,
+)
+from app.services.decision_feedback import (
+    DecisionFeedbackError,
+    get_decision_feedback,
+    record_coach_selection,
+    record_decision_outcome,
 )
 from app.services.decision_history import (
     analyse_and_persist_decision,
@@ -88,3 +99,76 @@ def decision_history(
         )
 
     return result
+
+
+@router.post(
+    "/{decision_id}/selection",
+    response_model=CoachSelectionResponse,
+)
+def save_coach_selection(
+    decision_id: UUID,
+    selection: CoachSelectionCreate,
+    db: Session = Depends(
+        get_db
+    ),
+) -> CoachSelectionResponse:
+    try:
+        return record_coach_selection(
+            decision_id=decision_id,
+            selection=selection,
+            db=db,
+        )
+
+    except DecisionFeedbackError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from None
+
+
+@router.post(
+    "/{decision_id}/outcome",
+    response_model=DecisionOutcomeResponse,
+)
+def save_decision_outcome(
+    decision_id: UUID,
+    outcome: DecisionOutcomeCreate,
+    db: Session = Depends(
+        get_db
+    ),
+) -> DecisionOutcomeResponse:
+    try:
+        return record_decision_outcome(
+            decision_id=decision_id,
+            outcome=outcome,
+            db=db,
+        )
+
+    except DecisionFeedbackError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from None
+
+
+@router.get(
+    "/{decision_id}/feedback",
+    response_model=DecisionFeedbackResponse,
+)
+def decision_feedback(
+    decision_id: UUID,
+    db: Session = Depends(
+        get_db
+    ),
+) -> DecisionFeedbackResponse:
+    try:
+        return get_decision_feedback(
+            decision_id=decision_id,
+            db=db,
+        )
+
+    except DecisionFeedbackError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from None
