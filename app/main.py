@@ -11,6 +11,9 @@ from app.api.decisions import (
 from app.api.scenarios import (
     router as scenarios_router,
 )
+from app.api.teams import (
+    router as teams_router,
+)
 from app.core.config import get_settings
 from app.db.database import (
     create_database_tables,
@@ -50,6 +53,10 @@ app.include_router(
 
 app.include_router(
     ai_router
+)
+
+app.include_router(
+    teams_router
 )
 
 
