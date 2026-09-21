@@ -1,5 +1,3 @@
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 
 from app.api.ai_analysis import (
@@ -15,21 +13,9 @@ from app.api.teams import (
     router as teams_router,
 )
 from app.core.config import get_settings
-from app.db.database import (
-    create_database_tables,
-)
 
 
 settings = get_settings()
-
-
-@asynccontextmanager
-async def lifespan(
-    app: FastAPI,
-):
-    create_database_tables()
-
-    yield
 
 
 app = FastAPI(
@@ -39,7 +25,6 @@ app = FastAPI(
         "Low-data tactical decision support "
         "for football coaches."
     ),
-    lifespan=lifespan,
 )
 
 
