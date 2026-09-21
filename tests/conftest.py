@@ -1,16 +1,21 @@
+import importlib
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.db import models  # noqa: F401
 from app.db.database import (
     Base,
     get_db,
 )
 from app.main import app
 
-# Ensure every mapped table is registered.
-from app.db import models  # noqa: F401
+
+main_module = importlib.import_module(
+    "app.main"
+)
 
 
 test_engine = create_engine(
@@ -29,8 +34,16 @@ TestingSessionLocal = sessionmaker(
 )
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(
+    autouse=True
+)
 def isolated_database():
+    original_beta_access_code = (
+        main_module.settings.beta_access_code
+    )
+
+    main_module.settings.beta_access_code = ""
+
     Base.metadata.create_all(
         bind=test_engine
     )
@@ -40,6 +53,7 @@ def isolated_database():
 
         try:
             yield db
+
         finally:
             db.close()
 
@@ -53,4 +67,8 @@ def isolated_database():
 
     Base.metadata.drop_all(
         bind=test_engine
+    )
+
+    main_module.settings.beta_access_code = (
+        original_beta_access_code
     )

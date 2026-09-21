@@ -21,12 +21,35 @@ def api_request(
     method: str,
     path: str,
     timeout: float = 30.0,
+    access_code: str | None = None,
     **kwargs,
 ):
+    headers = dict(
+        kwargs.pop(
+            "headers",
+            {},
+        )
+    )
+
+    code = (
+        access_code
+        if access_code is not None
+        else st.session_state.get(
+            "beta_access_code",
+            "",
+        )
+    )
+
+    if code:
+        headers[
+            "X-Beta-Access-Code"
+        ] = code
+
     try:
         response = httpx.request(
-            method,
-            f"{API_BASE_URL}{path}",
+            method=method,
+            url=f"{API_BASE_URL}{path}",
+            headers=headers,
             timeout=timeout,
             **kwargs,
         )
@@ -445,6 +468,10 @@ def show_verified_ai(
                 )
 
 
+# =================================================
+# HEADER
+# =================================================
+
 st.title(
     "⚽ Football Decision Intelligence"
 )
@@ -456,7 +483,102 @@ st.caption(
 
 
 # =================================================
-# SYSTEM STATUS
+# API HEALTH
+# =================================================
+
+try:
+    health = api_request(
+        "GET",
+        "/health",
+        access_code="",
+    )
+
+except RuntimeError as exc:
+    st.error(
+        str(exc)
+    )
+
+    st.info(
+        "Start FastAPI first with:\n\n"
+        "`python -m uvicorn app.main:app --reload`"
+    )
+
+    st.stop()
+
+
+# =================================================
+# PRIVATE BETA ACCESS
+# =================================================
+
+if not st.session_state.get(
+    "beta_authenticated",
+    False,
+):
+    st.subheader(
+        "🔐 Private Beta Access"
+    )
+
+    st.write(
+        "This preview is currently limited to "
+        "invited coaches and pilot users."
+    )
+
+    with st.form(
+        "beta_access_form"
+    ):
+        entered_code = st.text_input(
+            "Access code",
+            type="password",
+            placeholder=(
+                "Enter your private beta code"
+            ),
+        )
+
+        unlock_clicked = (
+            st.form_submit_button(
+                "Enter Private Beta",
+                type="primary",
+                use_container_width=True,
+            )
+        )
+
+    if unlock_clicked:
+        if not entered_code.strip():
+            st.error(
+                "Enter the private beta access code."
+            )
+
+        else:
+            try:
+                api_request(
+                    "GET",
+                    "/api/v1/teams",
+                    access_code=(
+                        entered_code.strip()
+                    ),
+                )
+
+                st.session_state[
+                    "beta_access_code"
+                ] = entered_code.strip()
+
+                st.session_state[
+                    "beta_authenticated"
+                ] = True
+
+                st.rerun()
+
+            except RuntimeError:
+                st.error(
+                    "The private beta access code "
+                    "was not accepted."
+                )
+
+    st.stop()
+
+
+# =================================================
+# AUTHENTICATED SIDEBAR
 # =================================================
 
 with st.sidebar:
@@ -464,33 +586,20 @@ with st.sidebar:
         "System"
     )
 
-    try:
-        health = api_request(
-            "GET",
-            "/health",
-        )
+    st.success(
+        "API connected"
+    )
 
-        if (
-            health.get(
-                "status"
-            )
-            == "healthy"
-        ):
-            st.success(
-                "API connected"
-            )
+    st.success(
+        "Private beta unlocked"
+    )
 
-    except RuntimeError as exc:
-        st.error(
-            str(exc)
-        )
-
-        st.info(
-            "Start FastAPI first with:\n\n"
-            "`python -m uvicorn app.main:app --reload`"
-        )
-
-        st.stop()
+    if st.button(
+        "Lock / Sign out",
+        use_container_width=True,
+    ):
+        st.session_state.clear()
+        st.rerun()
 
 
 # =================================================
@@ -694,11 +803,12 @@ with st.sidebar:
 # MAIN TABS
 # =================================================
 
-live_tab, history_tab = (
+live_tab, history_tab, pilot_tab = (
     st.tabs(
         [
             "Live Decision",
             "Team History",
+            "Pilot Feedback",
         ]
     )
 )
@@ -897,7 +1007,6 @@ with live_tab:
             )
         )
 
-
     if analyse_clicked:
         if (
             len(
@@ -1048,10 +1157,6 @@ with live_tab:
         )
 
 
-        # =========================================
-        # VERIFIED AI
-        # =========================================
-
         st.divider()
 
         st.header(
@@ -1119,10 +1224,6 @@ with live_tab:
                 brief,
             )
 
-
-        # =========================================
-        # COACH DECISION
-        # =========================================
 
         st.divider()
 
@@ -1247,10 +1348,6 @@ with live_tab:
                         str(exc)
                     )
 
-
-        # =========================================
-        # OUTCOME
-        # =========================================
 
         if selection_result:
             st.divider()
@@ -1616,3 +1713,282 @@ with history_tab:
         st.error(
             str(exc)
         )
+
+
+# =================================================
+# PILOT FEEDBACK TAB
+# =================================================
+
+with pilot_tab:
+    st.header(
+        "Private Pilot Feedback"
+    )
+
+    st.write(
+        "Your feedback helps us understand whether "
+        "this tool is useful enough for real coaching "
+        "workflows and what a practical pilot should "
+        "look like."
+    )
+
+    st.caption(
+        "The willingness-to-pay question is for "
+        "product validation only. No payment is "
+        "taken on this page."
+    )
+
+    existing_interest = (
+        st.session_state.get(
+            "pilot_interest_result"
+        )
+    )
+
+    if existing_interest:
+        st.success(
+            "Thank you — your pilot feedback "
+            "has been recorded."
+        )
+
+        left, right = st.columns(
+            2
+        )
+
+        with left:
+            st.write(
+                "**Pilot interest:**",
+                existing_interest[
+                    "join_private_pilot"
+                ].title(),
+            )
+
+        with right:
+            monthly_value = (
+                existing_interest[
+                    "willingness_to_pay_monthly_gbp"
+                ]
+            )
+
+            st.write(
+                "**Indicative monthly value:**",
+                (
+                    f"£{monthly_value}"
+                    if monthly_value
+                    is not None
+                    else "Not specified"
+                ),
+            )
+
+    else:
+        answer_map = {
+            "Yes": "yes",
+            "Maybe": "maybe",
+            "No": "no",
+        }
+
+        with st.form(
+            "pilot_interest_form"
+        ):
+            coach_name = (
+                st.text_input(
+                    "Your name"
+                )
+            )
+
+            email = (
+                st.text_input(
+                    "Email"
+                )
+            )
+
+            club_or_team = (
+                st.text_input(
+                    "Club / team",
+                    value=(
+                        selected_team[
+                            "team_name"
+                        ]
+                    ),
+                )
+            )
+
+            role = (
+                st.text_input(
+                    "Role",
+                    placeholder=(
+                        "Head Coach, Assistant Coach, "
+                        "Analyst..."
+                    ),
+                )
+            )
+
+            would_use = (
+                st.selectbox(
+                    "Would you use this in real match preparation or decision review?",
+                    list(
+                        answer_map
+                    ),
+                )
+            )
+
+            join_pilot = (
+                st.selectbox(
+                    "Would you join a private pilot?",
+                    list(
+                        answer_map
+                    ),
+                )
+            )
+
+            provide_value = (
+                st.checkbox(
+                    "I can give an indicative "
+                    "monthly value for this product."
+                )
+            )
+
+            willingness_to_pay = None
+
+            if provide_value:
+                willingness_to_pay = (
+                    st.number_input(
+                        "Indicative monthly value (£)",
+                        min_value=0,
+                        max_value=10000,
+                        value=25,
+                        step=5,
+                        help=(
+                            "This is not a payment. "
+                            "It is only product-validation data."
+                        ),
+                    )
+                )
+
+            most_valuable_feature = (
+                st.text_area(
+                    "Most valuable feature",
+                    placeholder=(
+                        "Which part of the product "
+                        "would matter most to you?"
+                    ),
+                    max_chars=1000,
+                )
+            )
+
+            pilot_feedback = (
+                st.text_area(
+                    "Feedback / feature request",
+                    placeholder=(
+                        "What would need to improve "
+                        "before you would use this regularly?"
+                    ),
+                    max_chars=3000,
+                )
+            )
+
+            submit_interest = (
+                st.form_submit_button(
+                    "Submit Pilot Feedback",
+                    type="primary",
+                    use_container_width=True,
+                )
+            )
+
+        if submit_interest:
+            if (
+                len(
+                    coach_name.strip()
+                )
+                < 2
+            ):
+                st.error(
+                    "Enter your name."
+                )
+
+            elif (
+                len(
+                    email.strip()
+                )
+                < 5
+                or "@"
+                not in email
+            ):
+                st.error(
+                    "Enter a valid email address."
+                )
+
+            elif (
+                len(
+                    club_or_team.strip()
+                )
+                < 2
+            ):
+                st.error(
+                    "Enter your club or team."
+                )
+
+            elif (
+                len(
+                    role.strip()
+                )
+                < 2
+            ):
+                st.error(
+                    "Enter your role."
+                )
+
+            else:
+                try:
+                    result = api_request(
+                        "POST",
+                        "/api/v1/pilot-interest",
+                        json={
+                            "coach_name": (
+                                coach_name.strip()
+                            ),
+                            "email": (
+                                email.strip()
+                            ),
+                            "club_or_team": (
+                                club_or_team.strip()
+                            ),
+                            "role": (
+                                role.strip()
+                            ),
+                            "would_use_in_real_matches": (
+                                answer_map[
+                                    would_use
+                                ]
+                            ),
+                            "join_private_pilot": (
+                                answer_map[
+                                    join_pilot
+                                ]
+                            ),
+                            "willingness_to_pay_monthly_gbp": (
+                                int(
+                                    willingness_to_pay
+                                )
+                                if provide_value
+                                else None
+                            ),
+                            "most_valuable_feature": (
+                                most_valuable_feature.strip()
+                                or None
+                            ),
+                            "feedback": (
+                                pilot_feedback.strip()
+                                or None
+                            ),
+                        },
+                    )
+
+                    st.session_state[
+                        "pilot_interest_result"
+                    ] = result
+
+                    st.rerun()
+
+                except RuntimeError as exc:
+                    st.error(
+                        str(exc)
+                    )
