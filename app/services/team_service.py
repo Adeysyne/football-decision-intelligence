@@ -98,6 +98,28 @@ def create_team_profile(
     )
 
 
+def list_team_profiles(
+    db: Session,
+) -> list[TeamProfileResponse]:
+    statement = (
+        select(TeamRecord)
+        .order_by(
+            TeamRecord.team_name.asc()
+        )
+    )
+
+    records = db.scalars(
+        statement
+    ).all()
+
+    return [
+        _profile_response(
+            record
+        )
+        for record in records
+    ]
+
+
 def get_team_profile(
     team_id: UUID,
     db: Session,

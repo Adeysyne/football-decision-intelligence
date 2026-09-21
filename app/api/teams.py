@@ -19,6 +19,7 @@ from app.services.team_service import (
     create_team_profile,
     get_team_history_summary,
     get_team_profile,
+    list_team_profiles,
 )
 
 
@@ -50,6 +51,22 @@ def create_team(
             status_code=exc.status_code,
             detail=str(exc),
         ) from None
+
+
+@router.get(
+    "",
+    response_model=list[
+        TeamProfileResponse
+    ],
+)
+def teams(
+    db: Session = Depends(
+        get_db
+    ),
+) -> list[TeamProfileResponse]:
+    return list_team_profiles(
+        db=db
+    )
 
 
 @router.get(

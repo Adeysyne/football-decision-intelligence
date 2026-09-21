@@ -9,3 +9,4 @@ openai
 sqlalchemy
 alembic
 psycopg[binary]
+streamlit
