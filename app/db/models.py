@@ -291,3 +291,74 @@ class DecisionOutcomeRecord(Base):
         Text,
         nullable=True,
     )
+
+
+class PilotInterestRecord(Base):
+    __tablename__ = "pilot_interests"
+
+    pilot_interest_id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(
+            uuid4()
+        ),
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    coach_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    email: Mapped[str] = mapped_column(
+        String(254),
+        nullable=False,
+        index=True,
+    )
+
+    club_or_team: Mapped[str] = mapped_column(
+        String(150),
+        nullable=False,
+    )
+
+    role: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    would_use_in_real_matches: Mapped[str] = (
+        mapped_column(
+            String(10),
+            nullable=False,
+        )
+    )
+
+    join_private_pilot: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+    )
+
+    willingness_to_pay_monthly_gbp: Mapped[
+        int | None
+    ] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    most_valuable_feature: Mapped[
+        str | None
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    feedback: Mapped[
+        str | None
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )

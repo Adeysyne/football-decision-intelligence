@@ -1,19 +1,31 @@
 from functools import lru_cache
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    SettingsConfigDict,
+)
 
 
 class Settings(BaseSettings):
-    app_name: str = "Football Decision Intelligence"
+    app_name: str = (
+        "Football Decision Intelligence"
+    )
+
     app_env: str = "development"
+
     app_version: str = "0.1.0"
 
     openai_api_key: str = ""
-    openai_model: str = "gpt-5.6-luna"
+
+    openai_model: str = (
+        "gpt-5.6-luna"
+    )
 
     database_url: str = (
         "sqlite:///./football_decision_intelligence.db"
     )
+
+    beta_access_code: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",
