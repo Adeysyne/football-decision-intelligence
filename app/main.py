@@ -14,6 +14,9 @@ from app.api.ai_analysis import (
 from app.api.decisions import (
     router as decisions_router,
 )
+from app.api.operations import (
+    router as operations_router,
+)
 from app.api.pilot import (
     router as pilot_router,
 )
@@ -58,9 +61,16 @@ async def private_beta_access(
         )
     )
 
+    operations_path = (
+        request.url.path.startswith(
+            "/api/v1/operations"
+        )
+    )
+
     if (
         access_code
         and protected_path
+        and not operations_path
     ):
         supplied_code = (
             request.headers.get(
@@ -106,6 +116,10 @@ app.include_router(
 
 app.include_router(
     pilot_router
+)
+
+app.include_router(
+    operations_router
 )
 
 

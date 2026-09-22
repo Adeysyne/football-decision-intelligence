@@ -27,6 +27,8 @@ class Settings(BaseSettings):
 
     beta_access_code: str = ""
 
+    admin_access_code: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

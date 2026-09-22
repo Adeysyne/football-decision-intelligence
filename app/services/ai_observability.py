@@ -1,9 +1,13 @@
 from datetime import (
     datetime,
+    timedelta,
     timezone,
 )
 from uuid import UUID
 
+from sqlalchemy import (
+    select,
+)
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -11,6 +15,8 @@ from app.db.models import (
 )
 from app.models.observability import (
     AIAnalysisRunResponse,
+    AIAnalysisRunSummaryItem,
+    AIOperationsSummary,
 )
 
 
@@ -332,4 +338,260 @@ def get_ai_analysis_run(
 
     return _response(
         record
+    )
+
+
+def _percentage(
+    numerator: int,
+    denominator: int,
+) -> float:
+    if denominator <= 0:
+        return 0.0
+
+    return round(
+        (
+            numerator
+            / denominator
+        )
+        * 100,
+        2,
+    )
+
+
+def get_ai_operations_summary(
+    *,
+    window_days: int,
+    db: Session,
+) -> AIOperationsSummary:
+    since = (
+        datetime.now(
+            timezone.utc
+        )
+        - timedelta(
+            days=window_days
+        )
+    )
+
+    records = list(
+        db.scalars(
+            select(
+                AIAnalysisRunRecord
+            )
+            .where(
+                AIAnalysisRunRecord.started_at
+                >= since
+            )
+            .order_by(
+                AIAnalysisRunRecord.started_at.desc()
+            )
+        ).all()
+    )
+
+    total_runs = len(
+        records
+    )
+
+    approved_runs = sum(
+        1
+        for item in records
+        if item.status
+        == "approved"
+    )
+
+    verification_failed_runs = sum(
+        1
+        for item in records
+        if item.status
+        == "verification_failed"
+    )
+
+    provider_failed_runs = sum(
+        1
+        for item in records
+        if item.status
+        == "provider_failed"
+    )
+
+    failed_runs = sum(
+        1
+        for item in records
+        if item.status
+        == "failed"
+    )
+
+    in_progress_runs = sum(
+        1
+        for item in records
+        if item.status
+        == "started"
+    )
+
+    revised_runs = sum(
+        1
+        for item in records
+        if item.revised
+    )
+
+    completed_runs = [
+        item
+        for item in records
+        if item.status
+        != "started"
+    ]
+
+    latency_values = [
+        item.latency_ms
+        for item in completed_runs
+        if item.latency_ms
+        is not None
+    ]
+
+    if latency_values:
+        average_latency_ms = round(
+            sum(
+                latency_values
+            )
+            / len(
+                latency_values
+            ),
+            2,
+        )
+
+    else:
+        average_latency_ms = None
+
+    input_tokens = sum(
+        item.input_tokens
+        or 0
+        for item in records
+    )
+
+    output_tokens = sum(
+        item.output_tokens
+        or 0
+        for item in records
+    )
+
+    total_tokens = sum(
+        item.total_tokens
+        or 0
+        for item in records
+    )
+
+    estimated_cost_usd = round(
+        sum(
+            item.estimated_cost_usd
+            or 0.0
+            for item in records
+        ),
+        6,
+    )
+
+    model_counts: dict[
+        str,
+        int,
+    ] = {}
+
+    for item in records:
+        model_counts[
+            item.model_name
+        ] = (
+            model_counts.get(
+                item.model_name,
+                0,
+            )
+            + 1
+        )
+
+    completed_count = len(
+        completed_runs
+    )
+
+    recent_runs = [
+        AIAnalysisRunSummaryItem(
+            analysis_run_id=(
+                item.analysis_run_id
+            ),
+            started_at=(
+                item.started_at
+            ),
+            team_name=(
+                item.team_name
+            ),
+            model_name=(
+                item.model_name
+            ),
+            status=item.status,
+            verification_status=(
+                item.verification_status
+            ),
+            revised=(
+                item.revised
+            ),
+            review_attempt_count=(
+                item.review_attempt_count
+            ),
+            total_tokens=(
+                item.total_tokens
+            ),
+            latency_ms=(
+                item.latency_ms
+            ),
+            error_type=(
+                item.error_type
+            ),
+        )
+        for item in records[
+            :10
+        ]
+    ]
+
+    return AIOperationsSummary(
+        window_days=window_days,
+        total_runs=total_runs,
+        approved_runs=approved_runs,
+        verification_failed_runs=(
+            verification_failed_runs
+        ),
+        provider_failed_runs=(
+            provider_failed_runs
+        ),
+        failed_runs=failed_runs,
+        in_progress_runs=(
+            in_progress_runs
+        ),
+        revised_runs=revised_runs,
+        approval_rate_pct=(
+            _percentage(
+                approved_runs,
+                completed_count,
+            )
+        ),
+        revision_rate_pct=(
+            _percentage(
+                revised_runs,
+                completed_count,
+            )
+        ),
+        verification_failure_rate_pct=(
+            _percentage(
+                verification_failed_runs,
+                completed_count,
+            )
+        ),
+        average_latency_ms=(
+            average_latency_ms
+        ),
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=total_tokens,
+        estimated_cost_usd=(
+            estimated_cost_usd
+        ),
+        model_counts=(
+            model_counts
+        ),
+        recent_runs=(
+            recent_runs
+        ),
     )
