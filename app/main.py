@@ -41,6 +41,9 @@ from app.core.request_context import (
     reset_request_id,
     set_request_id,
 )
+from app.core.security import (
+    security_limiter,
+)
 
 
 configure_logging()
@@ -61,7 +64,109 @@ app = FastAPI(
         "Low-data tactical decision support "
         "for football coaches."
     ),
+    docs_url=(
+        None
+        if settings.app_env
+        == "production"
+        else "/docs"
+    ),
+    redoc_url=(
+        None
+        if settings.app_env
+        == "production"
+        else "/redoc"
+    ),
+    openapi_url=(
+        None
+        if settings.app_env
+        == "production"
+        else "/openapi.json"
+    ),
 )
+
+
+def _client_host(
+    request: Request,
+) -> str:
+    if request.client is None:
+        return "unknown"
+
+    return (
+        request.client.host
+        or "unknown"
+    )
+
+
+def _security_headers(
+    response,
+) -> None:
+    response.headers[
+        "X-Content-Type-Options"
+    ] = "nosniff"
+
+    response.headers[
+        "X-Frame-Options"
+    ] = "DENY"
+
+    response.headers[
+        "Referrer-Policy"
+    ] = "no-referrer"
+
+    response.headers[
+        "Permissions-Policy"
+    ] = (
+        "camera=(), "
+        "microphone=(), "
+        "geolocation=()"
+    )
+
+    response.headers[
+        "Cache-Control"
+    ] = "no-store"
+
+    if (
+        settings.security_enable_hsts
+    ):
+        response.headers[
+            "Strict-Transport-Security"
+        ] = (
+            "max-age=31536000; "
+            "includeSubDomains"
+        )
+
+
+def _json_response(
+    *,
+    status_code: int,
+    detail: str,
+    request_id: str,
+    retry_after: (
+        int | None
+    ) = None,
+):
+    response = JSONResponse(
+        status_code=status_code,
+        content={
+            "detail": detail
+        },
+    )
+
+    response.headers[
+        "X-Request-ID"
+    ] = request_id
+
+    if retry_after is not None:
+        response.headers[
+            "Retry-After"
+        ] = str(
+            retry_after
+        )
+
+    _security_headers(
+        response
+    )
+
+    return response
 
 
 @app.middleware(
@@ -86,20 +191,148 @@ async def request_pipeline(
     status_code = 500
 
     try:
-        access_code = (
-            settings.beta_access_code.strip()
+        client = _client_host(
+            request
+        )
+
+        path = (
+            request.url.path
         )
 
         protected_path = (
-            request.url.path.startswith(
+            path.startswith(
                 "/api/v1"
             )
         )
 
         operations_path = (
-            request.url.path.startswith(
+            path.startswith(
                 "/api/v1/operations"
             )
+        )
+
+        ai_path = (
+            path.startswith(
+                "/api/v1/ai"
+            )
+        )
+
+        content_length = (
+            request.headers.get(
+                "content-length"
+            )
+        )
+
+        if content_length:
+            try:
+                size = int(
+                    content_length
+                )
+
+            except ValueError:
+                size = 0
+
+            if (
+                size
+                > settings.max_request_bytes
+            ):
+                status_code = 413
+
+                return _json_response(
+                    status_code=413,
+                    detail=(
+                        "Request payload "
+                        "is too large."
+                    ),
+                    request_id=(
+                        request_id
+                    ),
+                )
+
+        if protected_path:
+            api_key = (
+                f"api:{client}"
+            )
+
+            api_allowed = (
+                security_limiter.allow(
+                    key=api_key,
+                    limit=(
+                        settings
+                        .api_rate_limit_per_minute
+                    ),
+                    window_seconds=60,
+                )
+            )
+
+            if not api_allowed:
+                retry_after = (
+                    security_limiter.retry_after(
+                        key=api_key,
+                        window_seconds=60,
+                    )
+                )
+
+                status_code = 429
+
+                return _json_response(
+                    status_code=429,
+                    detail=(
+                        "API request limit "
+                        "temporarily exceeded."
+                    ),
+                    request_id=(
+                        request_id
+                    ),
+                    retry_after=(
+                        retry_after
+                    ),
+                )
+
+        if ai_path:
+            ai_key = (
+                f"ai:{client}"
+            )
+
+            ai_allowed = (
+                security_limiter.allow(
+                    key=ai_key,
+                    limit=(
+                        settings
+                        .ai_rate_limit_per_minute
+                    ),
+                    window_seconds=60,
+                )
+            )
+
+            if not ai_allowed:
+                retry_after = (
+                    security_limiter.retry_after(
+                        key=ai_key,
+                        window_seconds=60,
+                    )
+                )
+
+                status_code = 429
+
+                return _json_response(
+                    status_code=429,
+                    detail=(
+                        "AI analysis request limit "
+                        "temporarily exceeded."
+                    ),
+                    request_id=(
+                        request_id
+                    ),
+                    retry_after=(
+                        retry_after
+                    ),
+                )
+
+        access_code = (
+            settings
+            .beta_access_code
+            .strip()
         )
 
         if (
@@ -118,23 +351,64 @@ async def request_pipeline(
                 supplied_code,
                 access_code,
             ):
-                response = JSONResponse(
-                    status_code=401,
-                    content={
-                        "detail": (
-                            "Private beta access "
-                            "code required."
-                        )
-                    },
+                failure_key = (
+                    f"beta-auth:{client}"
                 )
+
+                allowed = (
+                    security_limiter.allow(
+                        key=failure_key,
+                        limit=(
+                            settings
+                            .access_failure_limit
+                        ),
+                        window_seconds=(
+                            settings
+                            .access_failure_window_seconds
+                        ),
+                    )
+                )
+
+                if not allowed:
+                    retry_after = (
+                        security_limiter
+                        .retry_after(
+                            key=failure_key,
+                            window_seconds=(
+                                settings
+                                .access_failure_window_seconds
+                            ),
+                        )
+                    )
+
+                    status_code = 429
+
+                    return _json_response(
+                        status_code=429,
+                        detail=(
+                            "Too many private beta "
+                            "access attempts."
+                        ),
+                        request_id=(
+                            request_id
+                        ),
+                        retry_after=(
+                            retry_after
+                        ),
+                    )
 
                 status_code = 401
 
-                response.headers[
-                    "X-Request-ID"
-                ] = request_id
-
-                return response
+                return _json_response(
+                    status_code=401,
+                    detail=(
+                        "Private beta access "
+                        "code required."
+                    ),
+                    request_id=(
+                        request_id
+                    ),
+                )
 
         response = await call_next(
             request
@@ -147,6 +421,10 @@ async def request_pipeline(
         response.headers[
             "X-Request-ID"
         ] = request_id
+
+        _security_headers(
+            response
+        )
 
         return response
 

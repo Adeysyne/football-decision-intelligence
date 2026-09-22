@@ -8,11 +8,15 @@ from fastapi import (
     Header,
     HTTPException,
     Query,
+    Request,
 )
 from sqlalchemy.orm import Session
 
 from app.core.config import (
     get_settings,
+)
+from app.core.security import (
+    security_limiter,
 )
 from app.db.database import (
     get_db,
@@ -33,7 +37,20 @@ router = APIRouter(
 )
 
 
+def _client_host(
+    request: Request,
+) -> str:
+    if request.client is None:
+        return "unknown"
+
+    return (
+        request.client.host
+        or "unknown"
+    )
+
+
 def require_admin_access(
+    request: Request,
     x_admin_access_code: (
         str | None
     ) = Header(
@@ -61,16 +78,63 @@ def require_admin_access(
         or ""
     )
 
-    if not compare_digest(
+    if compare_digest(
         supplied,
         expected,
     ):
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Admin access code required."
+        return
+
+    client = _client_host(
+        request
+    )
+
+    key = (
+        f"admin-auth:{client}"
+    )
+
+    allowed = (
+        security_limiter.allow(
+            key=key,
+            limit=(
+                settings.access_failure_limit
+            ),
+            window_seconds=(
+                settings
+                .access_failure_window_seconds
             ),
         )
+    )
+
+    if not allowed:
+        retry_after = (
+            security_limiter.retry_after(
+                key=key,
+                window_seconds=(
+                    settings
+                    .access_failure_window_seconds
+                ),
+            )
+        )
+
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Too many administrator "
+                "access attempts."
+            ),
+            headers={
+                "Retry-After": str(
+                    retry_after
+                )
+            },
+        )
+
+    raise HTTPException(
+        status_code=401,
+        detail=(
+            "Admin access code required."
+        ),
+    )
 
 
 @router.get(

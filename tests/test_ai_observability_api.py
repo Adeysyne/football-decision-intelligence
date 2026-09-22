@@ -5,6 +5,9 @@ from fastapi.testclient import (
 )
 from sqlalchemy import select
 
+from app.core.security import (
+    security_limiter,
+)
 from app.db.models import (
     AIAnalysisRunRecord,
 )
@@ -28,6 +31,20 @@ client = TestClient(
 api_module = importlib.import_module(
     "app.api.ai_analysis"
 )
+
+
+def setup_function():
+    """
+    Give every test an isolated rate-limit state.
+
+    Production rate limits remain unchanged. This only prevents
+    one automated test from consuming another test's allowance.
+    """
+    security_limiter.clear()
+
+
+def teardown_function():
+    security_limiter.clear()
 
 
 def _approved_result():

@@ -11,9 +11,13 @@ class Settings(BaseSettings):
         "Football Decision Intelligence"
     )
 
-    app_env: str = "development"
+    app_env: str = (
+        "development"
+    )
 
-    app_version: str = "0.1.0"
+    app_version: str = (
+        "0.1.0"
+    )
 
     openai_api_key: str = ""
 
@@ -22,17 +26,44 @@ class Settings(BaseSettings):
     )
 
     database_url: str = (
-        "sqlite:///./football_decision_intelligence.db"
+        "sqlite:///./"
+        "football_decision_intelligence.db"
     )
 
     beta_access_code: str = ""
 
     admin_access_code: str = ""
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
+    max_request_bytes: int = (
+        65_536
+    )
+
+    api_rate_limit_per_minute: int = (
+        180
+    )
+
+    ai_rate_limit_per_minute: int = (
+        12
+    )
+
+    access_failure_limit: int = (
+        8
+    )
+
+    access_failure_window_seconds: int = (
+        300
+    )
+
+    security_enable_hsts: bool = (
+        False
+    )
+
+    model_config = (
+        SettingsConfigDict(
+            env_file=".env",
+            env_file_encoding="utf-8",
+            extra="ignore",
+        )
     )
 
 
