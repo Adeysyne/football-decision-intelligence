@@ -10,6 +10,9 @@ from sqlalchemy.orm import Session
 from app.core.config import (
     get_settings,
 )
+from app.core.request_context import (
+    get_request_id,
+)
 from app.db.database import (
     get_db,
 )
@@ -31,7 +34,7 @@ from app.services.ai_reasoning import (
 
 
 logger = logging.getLogger(
-    __name__
+    "fdi.ai"
 )
 
 
@@ -51,7 +54,7 @@ def _start_observability(
     settings = get_settings()
 
     try:
-        return start_ai_analysis_run(
+        run = start_ai_analysis_run(
             team_name=(
                 scenario.team_name
             ),
@@ -61,11 +64,48 @@ def _start_observability(
             db=db,
         )
 
+        logger.info(
+            "verified_ai_started",
+            extra={
+                "event": (
+                    "verified_ai_started"
+                ),
+                "request_id": (
+                    get_request_id()
+                ),
+                "analysis_run_id": str(
+                    run.analysis_run_id
+                ),
+                "team_name": (
+                    scenario.team_name
+                ),
+                "model_name": (
+                    settings.openai_model
+                ),
+            },
+        )
+
+        return run
+
     except Exception:
         db.rollback()
 
-        logger.exception(
-            "AI observability start failed."
+        logger.error(
+            "ai_observability_start_failed",
+            extra={
+                "event": (
+                    "ai_observability_start_failed"
+                ),
+                "request_id": (
+                    get_request_id()
+                ),
+                "team_name": (
+                    scenario.team_name
+                ),
+                "error_type": (
+                    "ObservabilityFailure"
+                ),
+            },
         )
 
         return None
@@ -115,8 +155,22 @@ def _complete_observability(
     except Exception:
         db.rollback()
 
-        logger.exception(
-            "AI observability completion failed."
+        logger.error(
+            "ai_observability_completion_failed",
+            extra={
+                "event": (
+                    "ai_observability_completion_failed"
+                ),
+                "request_id": (
+                    get_request_id()
+                ),
+                "analysis_run_id": str(
+                    run.analysis_run_id
+                ),
+                "error_type": (
+                    "ObservabilityFailure"
+                ),
+            },
         )
 
 
@@ -181,6 +235,26 @@ def analyse_scenario(
         )
 
     except AIAnalysisError as exc:
+        logger.warning(
+            "ai_analysis_failed",
+            extra={
+                "event": (
+                    "ai_analysis_failed"
+                ),
+                "request_id": (
+                    get_request_id()
+                ),
+                "team_name": (
+                    scenario.team_name
+                ),
+                "error_type": (
+                    type(
+                        exc
+                    ).__name__
+                ),
+            },
+        )
+
         raise HTTPException(
             status_code=(
                 exc.status_code
@@ -255,6 +329,51 @@ def analyse_verified_scenario(
             ),
         )
 
+        logger.warning(
+            "verified_ai_failed",
+            extra={
+                "event": (
+                    "verified_ai_failed"
+                ),
+                "request_id": (
+                    get_request_id()
+                ),
+                "analysis_run_id": (
+                    str(
+                        run.analysis_run_id
+                    )
+                    if run
+                    else None
+                ),
+                "team_name": (
+                    scenario.team_name
+                ),
+                "status_code": (
+                    exc.status_code
+                ),
+                "verification_status": (
+                    failure[
+                        "verification_status"
+                    ]
+                ),
+                "revised": (
+                    failure[
+                        "revised"
+                    ]
+                ),
+                "review_attempt_count": (
+                    failure[
+                        "review_attempt_count"
+                    ]
+                ),
+                "error_type": (
+                    failure[
+                        "error_type"
+                    ]
+                ),
+            },
+        )
+
         raise HTTPException(
             status_code=(
                 exc.status_code
@@ -264,7 +383,7 @@ def analyse_verified_scenario(
             ),
         ) from None
 
-    except Exception:
+    except Exception as exc:
         _complete_observability(
             run=run,
             db=db,
@@ -282,6 +401,33 @@ def analyse_verified_scenario(
                 "Unexpected verified "
                 "analysis failure."
             ),
+        )
+
+        logger.error(
+            "verified_ai_unexpected_failure",
+            extra={
+                "event": (
+                    "verified_ai_unexpected_failure"
+                ),
+                "request_id": (
+                    get_request_id()
+                ),
+                "analysis_run_id": (
+                    str(
+                        run.analysis_run_id
+                    )
+                    if run
+                    else None
+                ),
+                "team_name": (
+                    scenario.team_name
+                ),
+                "error_type": (
+                    type(
+                        exc
+                    ).__name__
+                ),
+            },
         )
 
         raise
@@ -341,6 +487,58 @@ def analyse_verified_scenario(
         ),
         error_type=None,
         error_message=None,
+    )
+
+    logger.info(
+        "verified_ai_completed",
+        extra={
+            "event": (
+                "verified_ai_completed"
+            ),
+            "request_id": (
+                get_request_id()
+            ),
+            "analysis_run_id": (
+                str(
+                    run.analysis_run_id
+                )
+                if run
+                else None
+            ),
+            "team_name": (
+                scenario.team_name
+            ),
+            "model_name": (
+                result.get(
+                    "models",
+                    {},
+                ).get(
+                    "reasoning"
+                )
+            ),
+            "verification_status": (
+                verification.get(
+                    "status",
+                    "approved",
+                )
+            ),
+            "revised": bool(
+                verification.get(
+                    "revised",
+                    False,
+                )
+            ),
+            "review_attempt_count": (
+                len(
+                    review_attempts
+                )
+            ),
+            "total_tokens": (
+                usage[
+                    "total_tokens"
+                ]
+            ),
+        },
     )
 
     response = dict(

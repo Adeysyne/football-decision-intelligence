@@ -1,4 +1,9 @@
-from secrets import compare_digest
+import logging
+import time
+from secrets import (
+    compare_digest,
+)
+from uuid import uuid4
 
 from fastapi import (
     FastAPI,
@@ -29,6 +34,21 @@ from app.api.teams import (
 from app.core.config import (
     get_settings,
 )
+from app.core.logging_config import (
+    configure_logging,
+)
+from app.core.request_context import (
+    reset_request_id,
+    set_request_id,
+)
+
+
+configure_logging()
+
+
+logger = logging.getLogger(
+    "fdi.request"
+)
 
 
 settings = get_settings()
@@ -47,55 +67,157 @@ app = FastAPI(
 @app.middleware(
     "http"
 )
-async def private_beta_access(
+async def request_pipeline(
     request: Request,
     call_next,
 ):
-    access_code = (
-        settings.beta_access_code.strip()
+    request_id = str(
+        uuid4()
     )
 
-    protected_path = (
-        request.url.path.startswith(
-            "/api/v1"
+    token = set_request_id(
+        request_id
+    )
+
+    started = (
+        time.perf_counter()
+    )
+
+    status_code = 500
+
+    try:
+        access_code = (
+            settings.beta_access_code.strip()
         )
-    )
 
-    operations_path = (
-        request.url.path.startswith(
-            "/api/v1/operations"
-        )
-    )
-
-    if (
-        access_code
-        and protected_path
-        and not operations_path
-    ):
-        supplied_code = (
-            request.headers.get(
-                "X-Beta-Access-Code",
-                "",
+        protected_path = (
+            request.url.path.startswith(
+                "/api/v1"
             )
         )
 
-        if not compare_digest(
-            supplied_code,
-            access_code,
+        operations_path = (
+            request.url.path.startswith(
+                "/api/v1/operations"
+            )
+        )
+
+        if (
+            access_code
+            and protected_path
+            and not operations_path
         ):
-            return JSONResponse(
-                status_code=401,
-                content={
-                    "detail": (
-                        "Private beta access "
-                        "code required."
-                    )
+            supplied_code = (
+                request.headers.get(
+                    "X-Beta-Access-Code",
+                    "",
+                )
+            )
+
+            if not compare_digest(
+                supplied_code,
+                access_code,
+            ):
+                response = JSONResponse(
+                    status_code=401,
+                    content={
+                        "detail": (
+                            "Private beta access "
+                            "code required."
+                        )
+                    },
+                )
+
+                status_code = 401
+
+                response.headers[
+                    "X-Request-ID"
+                ] = request_id
+
+                return response
+
+        response = await call_next(
+            request
+        )
+
+        status_code = (
+            response.status_code
+        )
+
+        response.headers[
+            "X-Request-ID"
+        ] = request_id
+
+        return response
+
+    except Exception as exc:
+        logger.error(
+            "request_failed",
+            extra={
+                "event": (
+                    "request_failed"
+                ),
+                "request_id": (
+                    request_id
+                ),
+                "method": (
+                    request.method
+                ),
+                "path": (
+                    request.url.path
+                ),
+                "status_code": 500,
+                "error_type": (
+                    type(
+                        exc
+                    ).__name__
+                ),
+            },
+        )
+
+        raise
+
+    finally:
+        latency_ms = round(
+            (
+                time.perf_counter()
+                - started
+            )
+            * 1000,
+            2,
+        )
+
+        if (
+            request.url.path
+            != "/health"
+        ):
+            logger.info(
+                "request_completed",
+                extra={
+                    "event": (
+                        "request_completed"
+                    ),
+                    "request_id": (
+                        request_id
+                    ),
+                    "method": (
+                        request.method
+                    ),
+                    "path": (
+                        request.url.path
+                    ),
+                    "status_code": (
+                        status_code
+                    ),
+                    "latency_ms": (
+                        latency_ms
+                    ),
                 },
             )
 
-    return await call_next(
-        request
-    )
+        reset_request_id(
+            token
+        )
 
 
 app.include_router(
@@ -126,9 +248,15 @@ app.include_router(
 @app.get("/")
 def root() -> dict[str, str]:
     return {
-        "product": settings.app_name,
-        "version": settings.app_version,
-        "environment": settings.app_env,
+        "product": (
+            settings.app_name
+        ),
+        "version": (
+            settings.app_version
+        ),
+        "environment": (
+            settings.app_env
+        ),
         "status": "running",
     }
 
