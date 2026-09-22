@@ -82,6 +82,28 @@ services:
       api:
         condition: service_healthy
 
+  admin:
+    build:
+      context: .
+
+    command:
+      - streamlit
+      - run
+      - ui/admin.py
+      - --server.address=0.0.0.0
+      - --server.port=8502
+      - --server.headless=true
+
+    environment:
+      FDI_API_BASE_URL: http://api:8000
+
+    ports:
+      - "8502:8502"
+
+    depends_on:
+      api:
+        condition: service_healthy
+
 
 volumes:
   fdi_postgres_data:
