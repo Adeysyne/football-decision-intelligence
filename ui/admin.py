@@ -9,17 +9,17 @@ API_BASE_URL = os.getenv(
     "http://127.0.0.1:8000",
 ).rstrip("/")
 
+COACH_UI_URL = os.getenv(
+    "FDI_COACH_UI_URL",
+    "http://localhost:8501",
+).rstrip("/")
+
 
 st.set_page_config(
     page_title="FDI Operations",
     page_icon="📊",
     layout="wide",
 )
-
-
-# ============================================================
-# API HELPERS
-# ============================================================
 
 
 def api_request(
@@ -132,11 +132,6 @@ def status_icon(
     )
 
 
-# ============================================================
-# HEADER
-# ============================================================
-
-
 st.title(
     "📊 Football Decision Intelligence — Operations"
 )
@@ -145,11 +140,6 @@ st.caption(
     "Private operational monitoring for AI reliability, "
     "verification performance and usage."
 )
-
-
-# ============================================================
-# API HEALTH
-# ============================================================
 
 
 try:
@@ -170,11 +160,6 @@ except RuntimeError as exc:
     )
 
     st.stop()
-
-
-# ============================================================
-# ADMIN AUTHENTICATION
-# ============================================================
 
 
 if not st.session_state.get(
@@ -247,11 +232,6 @@ if not st.session_state.get(
     st.stop()
 
 
-# ============================================================
-# SIDEBAR
-# ============================================================
-
-
 with st.sidebar:
     st.header(
         "Operations"
@@ -302,15 +282,15 @@ with st.sidebar:
         "Coach dashboard"
     )
 
-    st.code(
-        "http://localhost:8501",
-        language=None,
+    st.link_button(
+        "Open Coach Dashboard",
+        COACH_UI_URL,
+        use_container_width=True,
     )
 
-
-# ============================================================
-# LOAD OPERATIONS DATA
-# ============================================================
+    st.caption(
+        COACH_UI_URL
+    )
 
 
 try:
@@ -337,11 +317,6 @@ except RuntimeError as exc:
     st.stop()
 
 
-# ============================================================
-# DASHBOARD HEADER
-# ============================================================
-
-
 st.subheader(
     "AI Reliability Overview"
 )
@@ -350,11 +325,6 @@ st.caption(
     f"Operational measurements from the "
     f"last {window_days} days."
 )
-
-
-# ============================================================
-# PRIMARY KPI CARDS
-# ============================================================
 
 
 col_1, col_2, col_3, col_4 = st.columns(
@@ -388,11 +358,6 @@ col_4.metric(
         f"{summary['verification_failure_rate_pct']:.2f}%"
     ),
 )
-
-
-# ============================================================
-# RELIABILITY BREAKDOWN
-# ============================================================
 
 
 st.divider()
@@ -442,11 +407,6 @@ if summary[
     )
 
 
-# ============================================================
-# PERFORMANCE
-# ============================================================
-
-
 st.divider()
 
 st.subheader(
@@ -494,11 +454,6 @@ col_4.metric(
 )
 
 
-# ============================================================
-# COST READINESS
-# ============================================================
-
-
 st.subheader(
     "AI Cost Monitoring"
 )
@@ -520,11 +475,6 @@ else:
         "yet been configured, so this dashboard does "
         "not currently claim an AI cost figure."
     )
-
-
-# ============================================================
-# MODEL DISTRIBUTION
-# ============================================================
 
 
 st.divider()
@@ -552,11 +502,6 @@ else:
         "No model usage has been recorded "
         "for this period."
     )
-
-
-# ============================================================
-# RECENT RUNS
-# ============================================================
 
 
 st.divider()
@@ -629,8 +574,7 @@ else:
                     ]
                     if run[
                         "total_tokens"
-                    ]
-                    is not None
+                    ] is not None
                     else "—"
                 ),
                 "Latency": (
@@ -654,11 +598,6 @@ else:
         use_container_width=True,
         hide_index=True,
     )
-
-
-# ============================================================
-# INTERPRETATION
-# ============================================================
 
 
 st.divider()
@@ -687,11 +626,6 @@ whether a tactical decision was objectively correct or caused
 a match outcome.
 """
 )
-
-
-# ============================================================
-# PILOT READINESS NOTE
-# ============================================================
 
 
 st.divider()
