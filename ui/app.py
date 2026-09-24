@@ -119,6 +119,221 @@ def reset_live_state() -> None:
         )
 
 
+def scenario_draft_key(
+    team_id: str,
+) -> str:
+    return f"scenario_draft::{team_id}"
+
+
+def default_scenario_draft(
+    team: dict,
+) -> dict:
+    return {
+        "minute": 68,
+        "our_score": 1,
+        "opponent_score": 0,
+        "opponent_name": "",
+        "our_formation": (
+            team.get("default_formation")
+            or "4-2-3-1"
+        ),
+        "opponent_formation": "4-3-3",
+        "tactical_problem": "",
+        "objective": "",
+        "coach_observations": "",
+        "yellow_cards": "",
+        "red_cards": "",
+        "substitutions": "",
+        "requested_option_count": 3,
+    }
+
+
+def draft_from_scenario(
+    scenario: dict,
+) -> dict:
+    return {
+        "minute": int(
+            scenario.get(
+                "minute",
+                68,
+            )
+        ),
+        "our_score": int(
+            scenario.get(
+                "our_score",
+                1,
+            )
+        ),
+        "opponent_score": int(
+            scenario.get(
+                "opponent_score",
+                0,
+            )
+        ),
+        "opponent_name": (
+            scenario.get("opponent_name")
+            or ""
+        ),
+        "our_formation": (
+            scenario.get("our_formation")
+            or "4-2-3-1"
+        ),
+        "opponent_formation": (
+            scenario.get("opponent_formation")
+            or ""
+        ),
+        "tactical_problem": (
+            scenario.get("tactical_problem")
+            or ""
+        ),
+        "objective": (
+            scenario.get("objective")
+            or ""
+        ),
+        "coach_observations": (
+            scenario.get(
+                "coach_observations"
+            )
+            or ""
+        ),
+        "yellow_cards": ", ".join(
+            scenario.get(
+                "yellow_cards",
+                [],
+            )
+            or []
+        ),
+        "red_cards": ", ".join(
+            scenario.get(
+                "red_cards",
+                [],
+            )
+            or []
+        ),
+        "substitutions": ", ".join(
+            scenario.get(
+                "available_substitutions",
+                [],
+            )
+            or []
+        ),
+        "requested_option_count": int(
+            scenario.get(
+                "requested_option_count",
+                3,
+            )
+        ),
+    }
+
+
+def get_scenario_draft(
+    team: dict,
+) -> dict:
+    key = scenario_draft_key(
+        str(team["team_id"])
+    )
+
+    draft = st.session_state.get(
+        key
+    )
+
+    if not isinstance(
+        draft,
+        dict,
+    ):
+        draft = default_scenario_draft(
+            team
+        )
+
+        st.session_state[
+            key
+        ] = draft
+
+    return draft
+
+
+def save_scenario_draft(
+    team_id: str,
+    draft: dict,
+) -> None:
+    st.session_state[
+        scenario_draft_key(team_id)
+    ] = dict(draft)
+
+
+def clear_scenario_draft(
+    team: dict,
+) -> None:
+    st.session_state[
+        scenario_draft_key(
+            str(team["team_id"])
+        )
+    ] = default_scenario_draft(
+        team
+    )
+
+
+def outcome_draft_key(
+    decision_id: str,
+) -> str:
+    return (
+        f"outcome_draft::{decision_id}"
+    )
+
+
+def get_outcome_draft(
+    decision_id: str,
+    scenario: dict,
+) -> dict:
+    key = outcome_draft_key(
+        decision_id
+    )
+
+    draft = st.session_state.get(
+        key
+    )
+
+    if not isinstance(
+        draft,
+        dict,
+    ):
+        draft = {
+            "final_our_score": int(
+                scenario.get(
+                    "our_score",
+                    0,
+                )
+            ),
+            "final_opponent_score": int(
+                scenario.get(
+                    "opponent_score",
+                    0,
+                )
+            ),
+            "assessment": "Helped",
+            "outcome_summary": "",
+            "observed_effects": "",
+            "next_time_notes": "",
+        }
+
+        st.session_state[
+            key
+        ] = draft
+
+    return draft
+
+
+def save_outcome_draft(
+    decision_id: str,
+    draft: dict,
+) -> None:
+    st.session_state[
+        outcome_draft_key(
+            decision_id
+        )
+    ] = dict(draft)
+
+
 def comma_list(
     value: str,
 ) -> list[str]:
@@ -643,6 +858,8 @@ st.caption(
 # ============================================================
 
 
+api_connected = True
+
 try:
     api_request(
         "GET",
@@ -651,16 +868,29 @@ try:
     )
 
 except RuntimeError as exc:
-    st.error(
-        str(exc)
-    )
+    api_connected = False
 
-    st.info(
-        "Start FastAPI first with:\n\n"
-        "`python -m uvicorn app.main:app --reload`"
-    )
+    if st.session_state.get(
+        "beta_authenticated",
+        False,
+    ):
+        st.warning(
+            "The API is temporarily unavailable. "
+            "Your in-progress form data is being kept "
+            "in this session while the connection recovers."
+        )
 
-    st.stop()
+    else:
+        st.error(
+            str(exc)
+        )
+
+        st.info(
+            "The backend API must be available before "
+            "private beta access can be verified."
+        )
+
+        st.stop()
 
 
 # ============================================================
@@ -745,9 +975,15 @@ with st.sidebar:
         "System"
     )
 
-    st.success(
-        "API connected"
-    )
+    if api_connected:
+        st.success(
+            "API connected"
+        )
+
+    else:
+        st.warning(
+            "API reconnecting"
+        )
 
     st.success(
         "Private beta unlocked"
@@ -772,12 +1008,35 @@ try:
         "/api/v1/teams",
     )
 
+    st.session_state[
+        "teams_cache"
+    ] = teams
+
+    api_connected = True
+
 except RuntimeError as exc:
-    st.error(
-        str(exc)
+    cached_teams = (
+        st.session_state.get(
+            "teams_cache"
+        )
     )
 
-    st.stop()
+    if cached_teams:
+        teams = cached_teams
+        api_connected = False
+
+        st.warning(
+            "The API connection dropped temporarily. "
+            "Showing the last team data loaded in this "
+            "browser session so your form is not lost."
+        )
+
+    else:
+        st.error(
+            str(exc)
+        )
+
+        st.stop()
 
 
 with st.sidebar:
@@ -847,7 +1106,12 @@ with st.sidebar:
             new_formation = (
                 st.text_input(
                     "Default formation",
-                    placeholder="4-2-3-1",
+                    value="4-2-3-1",
+                    help=(
+                        "This is saved as the team's "
+                        "default formation and can still "
+                        "be changed for an individual scenario."
+                    ),
                 )
             )
 
@@ -923,6 +1187,11 @@ selected_team = team_lookup[
 ]
 
 
+scenario_draft = get_scenario_draft(
+    selected_team
+)
+
+
 previous_team_id = (
     st.session_state.get(
         "active_team_id"
@@ -956,6 +1225,11 @@ with st.sidebar:
             use_container_width=True,
         ):
             reset_live_state()
+
+            clear_scenario_draft(
+                selected_team
+            )
+
             st.rerun()
 
 
@@ -990,9 +1264,19 @@ with live_tab:
             ]
         )
 
+        displayed_formation = (
+            selected_team.get(
+                "default_formation"
+            )
+            or scenario_draft.get(
+                "our_formation"
+            )
+            or "Not set"
+        )
+
         st.markdown(
             f"**Default formation:** "
-            f"{selected_team['default_formation'] or 'Not set'}"
+            f"{displayed_formation}"
         )
 
     with right:
@@ -1013,6 +1297,45 @@ with live_tab:
         "1. Match Scenario"
     )
 
+    if (
+        not st.session_state.get(
+            "scenario_result"
+        )
+        and any(
+            [
+                scenario_draft.get(
+                    "opponent_name"
+                ),
+                scenario_draft.get(
+                    "tactical_problem"
+                ),
+                scenario_draft.get(
+                    "objective"
+                ),
+                scenario_draft.get(
+                    "coach_observations"
+                ),
+                scenario_draft.get(
+                    "yellow_cards"
+                ),
+                scenario_draft.get(
+                    "substitutions"
+                ),
+            ]
+        )
+    ):
+        st.info(
+            "Recovered your in-progress scenario values "
+            "from this browser session. Review them and "
+            "click Analyse Scenario to continue."
+        )
+
+    team_widget_id = str(
+        selected_team[
+            "team_id"
+        ]
+    )
+
     with st.form(
         "scenario_form"
     ):
@@ -1024,29 +1347,64 @@ with live_tab:
             "Minute",
             min_value=0,
             max_value=130,
-            value=68,
+            value=int(
+                scenario_draft.get(
+                    "minute",
+                    68,
+                )
+            ),
             step=1,
+            key=(
+                f"scenario_minute::"
+                f"{team_widget_id}"
+            ),
         )
 
         our_score = col_2.number_input(
             "Our score",
             min_value=0,
             max_value=30,
-            value=1,
+            value=int(
+                scenario_draft.get(
+                    "our_score",
+                    1,
+                )
+            ),
             step=1,
+            key=(
+                f"scenario_our_score::"
+                f"{team_widget_id}"
+            ),
         )
 
         opponent_score = col_3.number_input(
             "Opponent score",
             min_value=0,
             max_value=30,
-            value=0,
+            value=int(
+                scenario_draft.get(
+                    "opponent_score",
+                    0,
+                )
+            ),
             step=1,
+            key=(
+                f"scenario_opponent_score::"
+                f"{team_widget_id}"
+            ),
         )
 
         opponent_name = st.text_input(
             "Opponent",
+            value=scenario_draft.get(
+                "opponent_name",
+                "",
+            ),
             placeholder="Example United",
+            key=(
+                f"scenario_opponent::"
+                f"{team_widget_id}"
+            ),
         )
 
         col_1, col_2 = st.columns(
@@ -1056,61 +1414,125 @@ with live_tab:
         our_formation = col_1.text_input(
             "Our formation",
             value=(
-                selected_team[
+                scenario_draft.get(
+                    "our_formation"
+                )
+                or selected_team.get(
                     "default_formation"
-                ]
+                )
                 or "4-2-3-1"
+            ),
+            key=(
+                f"scenario_our_formation::"
+                f"{team_widget_id}"
             ),
         )
 
         opponent_formation = (
             col_2.text_input(
                 "Opponent formation",
-                value="4-3-3",
+                value=(
+                    scenario_draft.get(
+                        "opponent_formation"
+                    )
+                    or "4-3-3"
+                ),
+                key=(
+                    f"scenario_opponent_formation::"
+                    f"{team_widget_id}"
+                ),
             )
         )
 
         tactical_problem = st.text_area(
             "What tactical problem are you seeing?",
+            value=scenario_draft.get(
+                "tactical_problem",
+                "",
+            ),
             placeholder=(
                 "Their right winger is repeatedly "
                 "getting behind our left-back."
+            ),
+            key=(
+                f"scenario_tactical_problem::"
+                f"{team_widget_id}"
             ),
         )
 
         objective = st.text_area(
             "What is your objective?",
+            value=scenario_draft.get(
+                "objective",
+                "",
+            ),
             placeholder=(
                 "Protect the lead without completely "
                 "losing our attacking threat."
+            ),
+            key=(
+                f"scenario_objective::"
+                f"{team_widget_id}"
             ),
         )
 
         coach_observations = st.text_area(
             "Coach observations",
+            value=scenario_draft.get(
+                "coach_observations",
+                "",
+            ),
             placeholder=(
                 "Our left-back is already booked "
                 "and their right-back is beginning "
                 "to overlap."
             ),
+            key=(
+                f"scenario_observations::"
+                f"{team_widget_id}"
+            ),
         )
 
         yellow_cards = st.text_input(
             "Yellow-carded roles",
+            value=scenario_draft.get(
+                "yellow_cards",
+                "",
+            ),
             placeholder=(
                 "Left-back, Defensive midfielder"
+            ),
+            key=(
+                f"scenario_yellow_cards::"
+                f"{team_widget_id}"
             ),
         )
 
         red_cards = st.text_input(
-            "Red-carded roles"
+            "Red-carded roles",
+            value=scenario_draft.get(
+                "red_cards",
+                "",
+            ),
+            key=(
+                f"scenario_red_cards::"
+                f"{team_widget_id}"
+            ),
         )
 
         substitutions = st.text_input(
             "Available substitutions / roles",
+            value=scenario_draft.get(
+                "substitutions",
+                "",
+            ),
             placeholder=(
                 "Centre-back, Left-back, "
                 "Defensive midfielder"
+            ),
+            key=(
+                f"scenario_substitutions::"
+                f"{team_widget_id}"
             ),
         )
 
@@ -1118,7 +1540,16 @@ with live_tab:
             "Number of tactical alternatives",
             min_value=2,
             max_value=4,
-            value=3,
+            value=int(
+                scenario_draft.get(
+                    "requested_option_count",
+                    3,
+                )
+            ),
+            key=(
+                f"scenario_option_count::"
+                f"{team_widget_id}"
+            ),
         )
 
         analyse_clicked = (
@@ -1130,6 +1561,59 @@ with live_tab:
         )
 
     if analyse_clicked:
+        submitted_draft = {
+            "minute": int(
+                minute
+            ),
+            "our_score": int(
+                our_score
+            ),
+            "opponent_score": int(
+                opponent_score
+            ),
+            "opponent_name": (
+                opponent_name.strip()
+            ),
+            "our_formation": (
+                our_formation.strip()
+            ),
+            "opponent_formation": (
+                opponent_formation.strip()
+            ),
+            "tactical_problem": (
+                tactical_problem.strip()
+            ),
+            "objective": (
+                objective.strip()
+            ),
+            "coach_observations": (
+                coach_observations.strip()
+            ),
+            "yellow_cards": (
+                yellow_cards.strip()
+            ),
+            "red_cards": (
+                red_cards.strip()
+            ),
+            "substitutions": (
+                substitutions.strip()
+            ),
+            "requested_option_count": int(
+                requested_option_count
+            ),
+        }
+
+        save_scenario_draft(
+            str(
+                selected_team[
+                    "team_id"
+                ]
+            ),
+            submitted_draft,
+        )
+
+        scenario_draft = submitted_draft
+
         if len(
             tactical_problem.strip()
         ) < 10:
@@ -1230,6 +1714,19 @@ with live_tab:
                     "decision_result"
                 ] = decision_result
 
+                save_scenario_draft(
+                    str(
+                        selected_team[
+                            "team_id"
+                        ]
+                    ),
+                    draft_from_scenario(
+                        scenario_result[
+                            "scenario"
+                        ]
+                    ),
+                )
+
                 st.success(
                     "Scenario analysed successfully."
                 )
@@ -1239,12 +1736,16 @@ with live_tab:
                     str(exc)
                 )
 
-    scenario_result = st.session_state.get(
-        "scenario_result"
+    scenario_result = (
+        st.session_state.get(
+            "scenario_result"
+        )
     )
 
-    decision_result = st.session_state.get(
-        "decision_result"
+    decision_result = (
+        st.session_state.get(
+            "decision_result"
+        )
     )
 
     if decision_result:
@@ -1272,17 +1773,23 @@ with live_tab:
             "3. Verified AI Explanation"
         )
 
-        verified_result = st.session_state.get(
-            "verified_result"
+        verified_result = (
+            st.session_state.get(
+                "verified_result"
+            )
         )
 
-        verified_error = st.session_state.get(
-            "verified_error"
+        verified_error = (
+            st.session_state.get(
+                "verified_error"
+            )
         )
 
-        attempts = st.session_state.get(
-            "verification_attempts",
-            0,
+        attempts = (
+            st.session_state.get(
+                "verification_attempts",
+                0,
+            )
         )
 
         if verified_result:
@@ -1373,8 +1880,10 @@ with live_tab:
             "4. Coach Decision"
         )
 
-        selection_result = st.session_state.get(
-            "selection_result"
+        selection_result = (
+            st.session_state.get(
+                "selection_result"
+            )
         )
 
         options = brief[
@@ -1395,9 +1904,11 @@ with live_tab:
                 "Coach selection saved."
             )
 
-            selected_id = selection_result[
-                "selected_option_id"
-            ]
+            selected_id = (
+                selection_result[
+                    "selected_option_id"
+                ]
+            )
 
             st.markdown(
                 f"**Selected option:** "
@@ -1486,8 +1997,10 @@ with live_tab:
         # OUTCOME
         # ====================================================
 
-        selection_result = st.session_state.get(
-            "selection_result"
+        selection_result = (
+            st.session_state.get(
+                "selection_result"
+            )
         )
 
         if selection_result:
@@ -1497,8 +2010,10 @@ with live_tab:
                 "5. Record Match Outcome"
             )
 
-            outcome_result = st.session_state.get(
-                "outcome_result"
+            outcome_result = (
+                st.session_state.get(
+                    "outcome_result"
+                )
             )
 
             if outcome_result:
@@ -1560,23 +2075,74 @@ with live_tab:
                     ]
                 )
 
+                decision_id = str(
+                    decision_result[
+                        "decision_id"
+                    ]
+                )
+
+                outcome_draft = (
+                    get_outcome_draft(
+                        decision_id,
+                        current_scenario,
+                    )
+                )
+
+                assessment_map = {
+                    "Helped": "helped",
+                    "Neutral": "neutral",
+                    "Hurt": "hurt",
+                    "Unclear": "unclear",
+                }
+
+                assessment_labels = list(
+                    assessment_map
+                )
+
+                saved_assessment = (
+                    outcome_draft.get(
+                        "assessment",
+                        "Helped",
+                    )
+                )
+
+                assessment_index = (
+                    assessment_labels.index(
+                        saved_assessment
+                    )
+                    if saved_assessment
+                    in assessment_labels
+                    else 0
+                )
+
                 with st.form(
                     "outcome_form"
                 ):
-                    left, right = st.columns(
-                        2
+                    left, right = (
+                        st.columns(
+                            2
+                        )
                     )
 
-                    final_our_score = left.number_input(
-                        "Final our score",
-                        min_value=0,
-                        max_value=30,
-                        value=int(
-                            current_scenario[
-                                "our_score"
-                            ]
-                        ),
-                        step=1,
+                    final_our_score = (
+                        left.number_input(
+                            "Final our score",
+                            min_value=0,
+                            max_value=30,
+                            value=int(
+                                outcome_draft.get(
+                                    "final_our_score",
+                                    current_scenario[
+                                        "our_score"
+                                    ],
+                                )
+                            ),
+                            step=1,
+                            key=(
+                                f"outcome_our_score::"
+                                f"{decision_id}"
+                            ),
+                        )
                     )
 
                     final_opponent_score = (
@@ -1585,50 +2151,91 @@ with live_tab:
                             min_value=0,
                             max_value=30,
                             value=int(
-                                current_scenario[
-                                    "opponent_score"
-                                ]
+                                outcome_draft.get(
+                                    "final_opponent_score",
+                                    current_scenario[
+                                        "opponent_score"
+                                    ],
+                                )
                             ),
                             step=1,
+                            key=(
+                                f"outcome_opponent_score::"
+                                f"{decision_id}"
+                            ),
                         )
                     )
 
-                    assessment_map = {
-                        "Helped": "helped",
-                        "Neutral": "neutral",
-                        "Hurt": "hurt",
-                        "Unclear": "unclear",
-                    }
-
-                    assessment = st.selectbox(
-                        "Coach assessment of the intervention",
-                        list(
-                            assessment_map
-                        ),
+                    assessment = (
+                        st.selectbox(
+                            "Coach assessment of the intervention",
+                            assessment_labels,
+                            index=assessment_index,
+                            key=(
+                                f"outcome_assessment::"
+                                f"{decision_id}"
+                            ),
+                        )
                     )
 
-                    outcome_summary = st.text_area(
-                        "Outcome summary",
-                        placeholder=(
-                            "Describe what happened "
-                            "after the intervention "
-                            "without assuming causation."
-                        ),
-                        max_chars=2000,
+                    outcome_summary = (
+                        st.text_area(
+                            "Outcome summary",
+                            value=(
+                                outcome_draft.get(
+                                    "outcome_summary",
+                                    "",
+                                )
+                            ),
+                            placeholder=(
+                                "Describe what happened "
+                                "after the intervention "
+                                "without assuming causation."
+                            ),
+                            max_chars=2000,
+                            key=(
+                                f"outcome_summary::"
+                                f"{decision_id}"
+                            ),
+                        )
                     )
 
-                    observed_effects = st.text_area(
-                        "Observed effects",
-                        placeholder=(
-                            "One observation per line.\n"
-                            "Example: Wide exposure reduced."
-                        ),
-                        max_chars=2000,
+                    observed_effects = (
+                        st.text_area(
+                            "Observed effects",
+                            value=(
+                                outcome_draft.get(
+                                    "observed_effects",
+                                    "",
+                                )
+                            ),
+                            placeholder=(
+                                "One observation per line.\n"
+                                "Example: Wide exposure reduced."
+                            ),
+                            max_chars=2000,
+                            key=(
+                                f"outcome_effects::"
+                                f"{decision_id}"
+                            ),
+                        )
                     )
 
-                    next_time_notes = st.text_area(
-                        "Notes for next time",
-                        max_chars=2000,
+                    next_time_notes = (
+                        st.text_area(
+                            "Notes for next time",
+                            value=(
+                                outcome_draft.get(
+                                    "next_time_notes",
+                                    "",
+                                )
+                            ),
+                            max_chars=2000,
+                            key=(
+                                f"outcome_notes::"
+                                f"{decision_id}"
+                            ),
+                        )
                     )
 
                     save_outcome = (
@@ -1640,6 +2247,30 @@ with live_tab:
                     )
 
                 if save_outcome:
+                    submitted_outcome_draft = {
+                        "final_our_score": int(
+                            final_our_score
+                        ),
+                        "final_opponent_score": int(
+                            final_opponent_score
+                        ),
+                        "assessment": assessment,
+                        "outcome_summary": (
+                            outcome_summary.strip()
+                        ),
+                        "observed_effects": (
+                            observed_effects.strip()
+                        ),
+                        "next_time_notes": (
+                            next_time_notes.strip()
+                        ),
+                    }
+
+                    save_outcome_draft(
+                        decision_id,
+                        submitted_outcome_draft,
+                    )
+
                     if len(
                         outcome_summary.strip()
                     ) < 5:
@@ -1692,6 +2323,13 @@ with live_tab:
                         except RuntimeError as exc:
                             st.error(
                                 str(exc)
+                            )
+
+                            st.info(
+                                "Your outcome form values have "
+                                "been kept in this browser session. "
+                                "Once the API reconnects, return here "
+                                "and submit again without retyping them."
                             )
 
 
@@ -1849,8 +2487,10 @@ with pilot_tab:
         "taken on this page."
     )
 
-    existing_interest = st.session_state.get(
-        "pilot_interest_result"
+    existing_interest = (
+        st.session_state.get(
+            "pilot_interest_result"
+        )
     )
 
     if existing_interest:
@@ -1905,49 +2545,63 @@ with pilot_tab:
         with st.form(
             "pilot_interest_form"
         ):
-            coach_name = st.text_input(
-                "Your name"
+            coach_name = (
+                st.text_input(
+                    "Your name"
+                )
             )
 
-            email = st.text_input(
-                "Email"
+            email = (
+                st.text_input(
+                    "Email"
+                )
             )
 
-            club_or_team = st.text_input(
-                "Club / team",
-                value=(
-                    selected_team[
-                        "team_name"
-                    ]
-                ),
+            club_or_team = (
+                st.text_input(
+                    "Club / team",
+                    value=(
+                        selected_team[
+                            "team_name"
+                        ]
+                    ),
+                )
             )
 
-            role = st.text_input(
-                "Role",
-                placeholder=(
-                    "Head Coach, Assistant Coach, "
-                    "Analyst..."
-                ),
+            role = (
+                st.text_input(
+                    "Role",
+                    placeholder=(
+                        "Head Coach, Assistant Coach, "
+                        "Analyst..."
+                    ),
+                )
             )
 
-            would_use = st.selectbox(
-                "Would you use this in real match "
-                "preparation or decision review?",
-                list(
-                    answer_map
-                ),
+            would_use = (
+                st.selectbox(
+                    "Would you use this in real match "
+                    "preparation or decision review?",
+                    list(
+                        answer_map
+                    ),
+                )
             )
 
-            join_pilot = st.selectbox(
-                "Would you join a private pilot?",
-                list(
-                    answer_map
-                ),
+            join_pilot = (
+                st.selectbox(
+                    "Would you join a private pilot?",
+                    list(
+                        answer_map
+                    ),
+                )
             )
 
-            provide_value = st.checkbox(
-                "I can give an indicative "
-                "monthly value for this product."
+            provide_value = (
+                st.checkbox(
+                    "I can give an indicative "
+                    "monthly value for this product."
+                )
             )
 
             willingness_to_pay = None
@@ -1967,22 +2621,26 @@ with pilot_tab:
                     )
                 )
 
-            most_valuable_feature = st.text_area(
-                "Most valuable feature",
-                placeholder=(
-                    "Which part of the product "
-                    "would matter most to you?"
-                ),
-                max_chars=1000,
+            most_valuable_feature = (
+                st.text_area(
+                    "Most valuable feature",
+                    placeholder=(
+                        "Which part of the product "
+                        "would matter most to you?"
+                    ),
+                    max_chars=1000,
+                )
             )
 
-            pilot_feedback = st.text_area(
-                "Feedback / feature request",
-                placeholder=(
-                    "What would need to improve "
-                    "before you would use this regularly?"
-                ),
-                max_chars=3000,
+            pilot_feedback = (
+                st.text_area(
+                    "Feedback / feature request",
+                    placeholder=(
+                        "What would need to improve "
+                        "before you would use this regularly?"
+                    ),
+                    max_chars=3000,
+                )
             )
 
             submit_interest = (
