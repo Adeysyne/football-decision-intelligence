@@ -11,12 +11,14 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.team import (
     TeamHistorySummary,
+    TeamLatestWorkflow,
     TeamProfileCreate,
     TeamProfileResponse,
 )
 from app.services.team_service import (
     TeamServiceError,
     create_team_profile,
+    get_latest_team_workflow,
     get_team_history_summary,
     get_team_profile,
     list_team_profiles,
@@ -70,17 +72,19 @@ def teams(
 
 
 @router.get(
-    "/{team_id}",
-    response_model=TeamProfileResponse,
+    "/{team_id}/latest-workflow",
+    response_model=(
+        TeamLatestWorkflow | None
+    ),
 )
-def team_detail(
+def latest_team_workflow(
     team_id: UUID,
     db: Session = Depends(
         get_db
     ),
-) -> TeamProfileResponse:
+) -> TeamLatestWorkflow | None:
     try:
-        return get_team_profile(
+        return get_latest_team_workflow(
             team_id=team_id,
             db=db,
         )
@@ -104,6 +108,29 @@ def team_history_summary(
 ) -> TeamHistorySummary:
     try:
         return get_team_history_summary(
+            team_id=team_id,
+            db=db,
+        )
+
+    except TeamServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from None
+
+
+@router.get(
+    "/{team_id}",
+    response_model=TeamProfileResponse,
+)
+def team_detail(
+    team_id: UUID,
+    db: Session = Depends(
+        get_db
+    ),
+) -> TeamProfileResponse:
+    try:
+        return get_team_profile(
             team_id=team_id,
             db=db,
         )
