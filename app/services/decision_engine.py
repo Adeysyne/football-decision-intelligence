@@ -307,26 +307,44 @@ def _generate_engine_options(
                     "area and protect vulnerable duels."
                 ),
             ),
-            (
-                "Make a targeted defensive personnel change",
+        ]
+
+        if context["defensive_sub_available"]:
+            options.append(
                 (
-                    "Replace or protect the vulnerable "
-                    "defensive player while preserving "
-                    "the overall structure."
-                    if context["booked_defender"]
-                    else
-                    "Introduce a suitable defensive player "
-                    "while preserving the overall structure."
-                ),
-            ),
+                    "Make a targeted defensive personnel change",
+                    (
+                        "Replace or protect the vulnerable "
+                        "defensive player while preserving "
+                        "the overall structure."
+                        if context["booked_defender"]
+                        else
+                        "Introduce a suitable defensive player "
+                        "while preserving the overall structure."
+                    ),
+                )
+            )
+        else:
+            options.append(
+                (
+                    "Double the threatened flank with existing players",
+                    (
+                        "Use nearby midfield and wide support to "
+                        "protect the threatened area without relying "
+                        "on a defensive bench option."
+                    ),
+                )
+            )
+
+        options.append(
             (
                 "Use a more conservative structure",
                 (
                     "Create an additional defensive layer "
                     "and reduce transition exposure."
                 ),
-            ),
-        ]
+            )
+        )
 
     elif profile == "chase_game":
         options = [
@@ -337,13 +355,31 @@ def _generate_engine_options(
                     "supporting players closer to the final line."
                 ),
             ),
-            (
-                "Introduce an attacking player",
+        ]
+
+        if context["attacking_sub_available"]:
+            options.append(
                 (
-                    "Make a targeted attacking personnel "
-                    "change to increase threat in the final third."
-                ),
-            ),
+                    "Introduce an attacking player",
+                    (
+                        "Make a targeted attacking personnel "
+                        "change to increase threat in the final third."
+                    ),
+                )
+            )
+        else:
+            options.append(
+                (
+                    "Increase forward runs from existing players",
+                    (
+                        "Use higher starting positions and additional "
+                        "forward runs from the current team without "
+                        "depending on an attacking bench option."
+                    ),
+                )
+            )
+
+        options.append(
             (
                 "Use a more attacking structure",
                 (
@@ -351,8 +387,8 @@ def _generate_engine_options(
                     "additional player to attacking areas, "
                     "accepting greater transition exposure."
                 ),
-            ),
-        ]
+            )
+        )
 
     elif profile == "control_game":
         options = [
@@ -363,21 +399,39 @@ def _generate_engine_options(
                     "midfield spacing and support."
                 ),
             ),
-            (
-                "Introduce an additional midfielder",
+        ]
+
+        if context["midfield_sub_available"]:
+            options.append(
                 (
-                    "Use a targeted personnel change to improve "
-                    "central numbers and second-ball coverage."
-                ),
-            ),
+                    "Introduce an additional midfielder",
+                    (
+                        "Use a targeted personnel change to improve "
+                        "central numbers and second-ball coverage."
+                    ),
+                )
+            )
+        else:
+            options.append(
+                (
+                    "Narrow existing roles to reinforce midfield",
+                    (
+                        "Ask nearby players to occupy central spaces "
+                        "more consistently without depending on a "
+                        "midfield bench option."
+                    ),
+                )
+            )
+
+        options.append(
             (
                 "Restructure to create an extra midfield presence",
                 (
                     "Change the structure to create greater "
                     "central numerical support and control."
                 ),
-            ),
-        ]
+            )
+        )
 
     else:
         options = [
@@ -388,21 +442,38 @@ def _generate_engine_options(
                     "measured role or positioning adjustments."
                 ),
             ),
-            (
-                "Make a targeted personnel change",
+        ]
+
+        if scenario.available_substitutions:
+            options.append(
                 (
-                    "Use one substitution to address the "
-                    "clearest individual mismatch."
-                ),
-            ),
+                    "Make a targeted personnel change",
+                    (
+                        "Use one substitution to address the "
+                        "clearest individual mismatch."
+                    ),
+                )
+            )
+        else:
+            options.append(
+                (
+                    "Reassign existing roles to address the mismatch",
+                    (
+                        "Use role and positioning changes within the "
+                        "current eleven rather than relying on the bench."
+                    ),
+                )
+            )
+
+        options.append(
             (
                 "Make a measured structural adjustment",
                 (
                     "Change the structure modestly to improve "
                     "collective balance."
                 ),
-            ),
-        ]
+            )
+        )
 
     return [
         TacticalOptionInput(
@@ -414,7 +485,6 @@ def _generate_engine_options(
             :scenario.requested_option_count
         ]
     ]
-
 
 def _classify_option(
     option: TacticalOptionInput,
