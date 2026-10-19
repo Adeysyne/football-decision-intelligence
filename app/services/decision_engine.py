@@ -138,6 +138,78 @@ def _has_any(
     )
 
 
+def _defender_effectiveness_signal(
+    scenario: ScenarioCreate,
+) -> int:
+    """
+    Return a bounded signal from coach-supplied observations only.
+
+     1 = clear evidence that the defender is currently coping well
+     0 = absent, mixed or ambiguous evidence
+    -1 = clear evidence that the defender is currently struggling
+
+    This does not infer player quality. It only represents what the
+    coach explicitly reports about the current match.
+    """
+    observation = (
+        scenario.coach_observations
+        or ""
+    ).lower()
+
+    if (
+        not observation
+        or not _has_any(
+            observation,
+            DEFENSIVE_TERMS,
+        )
+    ):
+        return 0
+
+    positive_terms = (
+        "under control",
+        "handled the winger",
+        "handled him",
+        "contained the winger",
+        "contained him",
+        "dealt with the winger",
+        "dealt with him",
+        "won his duels",
+        "winning his duels",
+        "not been beaten",
+        "has not been beaten",
+    )
+
+    negative_terms = (
+        "repeatedly beaten",
+        "been beaten repeatedly",
+        "getting beaten",
+        "losing his duels",
+        "losing duels",
+        "struggling against",
+        "struggling to contain",
+        "cannot contain",
+        "can't contain",
+        "getting behind him",
+        "getting in behind",
+    )
+
+    positive = _has_any(
+        observation,
+        positive_terms,
+    )
+
+    negative = _has_any(
+        observation,
+        negative_terms,
+    )
+
+    # Mixed evidence is deliberately treated as uncertain.
+    if positive == negative:
+        return 0
+
+    return 1 if positive else -1
+
+
 def _scenario_text(
     scenario: ScenarioCreate,
 ) -> str:
@@ -541,6 +613,12 @@ def _score_option(
         scenario
     )
 
+    defender_effectiveness = (
+        _defender_effectiveness_signal(
+            scenario
+        )
+    )
+
     scores = deepcopy(
         BASE_SCORES[category]
     )
@@ -556,6 +634,27 @@ def _score_option(
 
         elif category == "instruction":
             scores["personnel_fit"] -= 1
+
+        # A booking remains a disciplinary-risk signal, but it
+        # should not erase explicit evidence from the coach about
+        # how the defender is performing in the current match.
+        if defender_effectiveness > 0:
+            if category == "instruction":
+                scores["defensive_stability"] += 1
+                scores["personnel_fit"] += 1
+                scores["objective_alignment"] += 1
+
+            elif category == "personnel":
+                scores["personnel_fit"] -= 1
+                scores["objective_alignment"] -= 2
+
+        elif defender_effectiveness < 0:
+            if category == "instruction":
+                scores["defensive_stability"] -= 1
+                scores["objective_alignment"] -= 1
+
+            elif category == "personnel":
+                scores["defensive_stability"] += 1
 
     if (
         category == "personnel"
