@@ -1230,8 +1230,8 @@ except RuntimeError as exc:
 
 
 with st.sidebar:
-    st.header(
-        "Team"
+    st.caption(
+        "FDI Demo Team"
     )
 
     team_lookup = {
@@ -1268,22 +1268,20 @@ with st.sidebar:
         else:
             selected_index = 0
 
-        selected_team_name = (
-            st.selectbox(
-                "Current team",
-                team_names,
-                index=selected_index,
-            )
-        )
+        # Shared beta uses the existing internal
+        # demo team without exposing team administration.
+        selected_team_name = team_names[
+            selected_index
+        ]
 
     else:
         st.info(
             "No team profile exists yet."
         )
 
-    with st.expander(
-        "Create new team"
-    ):
+    # Team creation is intentionally hidden from
+    # invited users of the shared private-beta demo.
+    if False:
         with st.form(
             "create_team_form"
         ):
@@ -1516,14 +1514,12 @@ with st.sidebar:
             st.rerun()
 
 
-live_tab, history_tab, pilot_tab = (
-    st.tabs(
-        [
-            "Live Decision",
-            "Team History",
-            "Pilot Feedback",
-        ]
-    )
+live_tab, pilot_tab = st.tabs(
+    [
+        "Live Decision",
+        "Quick Feedback",
+    ]
+)
 )
 
 
@@ -1603,40 +1599,8 @@ with live_tab:
         "Intelligence compares the available options."
     )
 
-    if (
-        not st.session_state.get(
-            "scenario_result"
-        )
-        and any(
-            [
-                scenario_draft.get(
-                    "opponent_name"
-                ),
-                scenario_draft.get(
-                    "tactical_problem"
-                ),
-                scenario_draft.get(
-                    "objective"
-                ),
-                scenario_draft.get(
-                    "coach_observations"
-                ),
-                scenario_draft.get(
-                    "yellow_cards"
-                ),
-                scenario_draft.get(
-                    "substitutions"
-                ),
-            ]
-        )
-    ):
-        st.info(
-            "Recovered your in-progress "
-            "scenario values from this "
-            "browser session. Review them "
-            "and click Analyse Scenario "
-            "to continue."
-        )
+    # The shared beta intentionally opens with a
+    # preloaded demonstration scenario.
 
     team_widget_id = str(
         selected_team[
@@ -2726,7 +2690,7 @@ with live_tab:
                             )
 
 
-with history_tab:
+if False:  # Hidden in shared private beta
     st.header(
         f"{selected_team['team_name']} "
         "— Team History"
@@ -2866,7 +2830,12 @@ with history_tab:
 
 with pilot_tab:
     st.header(
-        "Private Pilot Feedback"
+        "Quick Feedback"
+    )
+
+    st.caption(
+        "Optional, about 30 seconds. Your feedback helps "
+        "improve Football Decision Intelligence."
     )
 
     st.write(
@@ -3050,7 +3019,7 @@ with pilot_tab:
 
             submit_interest = (
                 st.form_submit_button(
-                    "Submit Pilot Feedback",
+                    "Submit Feedback",
                     type="primary",
                     use_container_width=True,
                 )
