@@ -1230,9 +1230,7 @@ except RuntimeError as exc:
 
 
 with st.sidebar:
-    st.header(
-        "Team"
-    )
+    # Team administration is hidden in the shared beta.
 
     team_lookup = {
         team[
@@ -1268,22 +1266,16 @@ with st.sidebar:
         else:
             selected_index = 0
 
-        selected_team_name = (
-            st.selectbox(
-                "Current team",
-                team_names,
-                index=selected_index,
-            )
-        )
+        selected_team_name = team_names[
+            selected_index
+        ]
 
     else:
         st.info(
             "No team profile exists yet."
         )
 
-    with st.expander(
-        "Create new team"
-    ):
+    if False:
         with st.form(
             "create_team_form"
         ):
@@ -1536,9 +1528,7 @@ with live_tab:
 
     with left:
         st.subheader(
-            selected_team[
-                "team_name"
-            ]
+            "FDI Demo Team"
         )
 
         displayed_formation = (
@@ -1603,40 +1593,8 @@ with live_tab:
         "Intelligence compares the available options."
     )
 
-    if (
-        not st.session_state.get(
-            "scenario_result"
-        )
-        and any(
-            [
-                scenario_draft.get(
-                    "opponent_name"
-                ),
-                scenario_draft.get(
-                    "tactical_problem"
-                ),
-                scenario_draft.get(
-                    "objective"
-                ),
-                scenario_draft.get(
-                    "coach_observations"
-                ),
-                scenario_draft.get(
-                    "yellow_cards"
-                ),
-                scenario_draft.get(
-                    "substitutions"
-                ),
-            ]
-        )
-    ):
-        st.info(
-            "Recovered your in-progress "
-            "scenario values from this "
-            "browser session. Review them "
-            "and click Analyse Scenario "
-            "to continue."
-        )
+    # Shared beta intentionally opens with a
+    # preloaded demonstration scenario.
 
     team_widget_id = str(
         selected_team[
