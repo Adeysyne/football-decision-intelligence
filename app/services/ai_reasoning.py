@@ -29,7 +29,9 @@ Use tactical_knowledge only to explain relevant tactical trade-offs
 conditionally. Do not claim that a retrieved principle proves that an
 event happened in this match.
 
-Explain only the supplied options. Use their exact option IDs.
+Explain only the supplied options.
+Use exact option IDs only in structured option_id fields.
+In coach-facing prose, refer to options by their exact tactical labels, never by raw machine IDs such as option_1 or option_2.
 Do not add options, change scores, or choose a different leader.
 
 Scores are rule-based decision-support signals, not probabilities.
@@ -109,6 +111,68 @@ def serialize_reasoning_input(
             scenario
         ),
         ensure_ascii=False,
+    )
+
+
+def _humanise_option_references(
+    reasoning: AIReasoning,
+    decision_brief: dict,
+) -> AIReasoning:
+    """
+    Preserve machine option IDs in structured fields,
+    but replace those IDs in coach-facing prose with
+    the exact tactical option labels.
+    """
+    labels = {
+        option["option_id"]: option["label"]
+        for option in decision_brief["options"]
+    }
+
+    def humanise(value: str) -> str:
+        for option_id, label in labels.items():
+            value = re.sub(
+                rf"\b{re.escape(option_id)}\b",
+                label,
+                value,
+                flags=re.IGNORECASE,
+            )
+
+        return value
+
+    data = reasoning.model_dump(
+        mode="json"
+    )
+
+    data["summary"] = humanise(
+        data["summary"]
+    )
+
+    for item in data["option_explanations"]:
+        for field in (
+            "explanation",
+            "main_risk",
+            "assumption_to_check",
+        ):
+            item[field] = humanise(
+                item[field]
+            )
+
+    data["missing_information"] = [
+        humanise(item)
+        for item in data[
+            "missing_information"
+        ]
+    ]
+
+    data["questions_for_coach"] = [
+        humanise(item)
+        for item in data[
+            "questions_for_coach"
+        ]
+    ]
+
+    return AIReasoning.model_validate(
+        data
     )
 
 
@@ -215,6 +279,11 @@ def analyse_with_ai(
         raise AIAnalysisError(
             "AI included an unsupported percentage."
         )
+
+    reasoning = _humanise_option_references(
+        reasoning,
+        payload["decision_brief"],
+    )
 
     return {
         "decision_brief": (
