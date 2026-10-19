@@ -1149,6 +1149,10 @@ if not st.session_state.get(
                     "beta_authenticated"
                 ] = True
 
+                # A fresh beta session starts without any
+                # previous analysis result.
+                reset_live_state()
+
                 st.rerun()
 
             except RuntimeError:
@@ -1411,60 +1415,48 @@ st.session_state[
 ] = current_team_id
 
 
-if (
-    not st.session_state.get(
-        "decision_result"
+# The private-beta URL is shared by invited testers.
+# Do not automatically restore another tester's workflow.
+st.session_state[
+    resume_checked_key(
+        current_team_id
     )
-    and not st.session_state.get(
-        resume_suppressed_key(
-            current_team_id
-        ),
-        False,
+] = True
+
+st.session_state[
+    resume_suppressed_key(
+        current_team_id
     )
-    and not st.session_state.get(
-        resume_checked_key(
-            current_team_id
-        ),
-        False,
-    )
-):
-    try:
-        latest_workflow = api_request(
-            "GET",
-            (
-                "/api/v1/teams/"
-                f"{current_team_id}"
-                "/latest-workflow"
-            ),
-        )
-
-        st.session_state[
-            resume_checked_key(
-                current_team_id
-            )
-        ] = True
-
-        if (
-            latest_workflow
-            and not latest_workflow.get(
-                "is_complete",
-                False,
-            )
-        ):
-            apply_latest_workflow(
-                selected_team,
-                latest_workflow,
-            )
-
-    except RuntimeError:
-        pass
+] = False
 
 
-scenario_draft = (
-    get_scenario_draft(
-        selected_team
-    )
-)
+scenario_draft = {
+    "minute": 68,
+    "our_score": 1,
+    "opponent_score": 0,
+    "opponent_name": "Example United",
+    "our_formation": "4-2-3-1",
+    "opponent_formation": "4-3-3",
+    "tactical_problem": (
+        "Their right winger is the main threat "
+        "down our left side."
+    ),
+    "objective": (
+        "Protect the lead while retaining control "
+        "and an attacking outlet."
+    ),
+    "coach_observations": (
+        "The left-back has kept the opponent's "
+        "right winger under control for the first "
+        "68 minutes despite being on a yellow card."
+    ),
+    "yellow_cards": "Left-back",
+    "red_cards": "",
+    "substitutions": (
+        "Centre-back, Left-back, Defensive midfielder"
+    ),
+    "requested_option_count": 3,
+}
 
 
 with st.sidebar:
@@ -1472,7 +1464,7 @@ with st.sidebar:
         "decision_result"
     ):
         if st.button(
-            "Start new analysis",
+            "Reset demo scenario",
             use_container_width=True,
         ):
             reset_live_state()
@@ -1489,7 +1481,7 @@ with st.sidebar:
                 resume_suppressed_key(
                     current_team_id
                 )
-            ] = True
+            ] = False
 
             st.session_state[
                 resume_notice_key(
@@ -1602,6 +1594,13 @@ with live_tab:
 
     st.header(
         "1. Match Scenario"
+    )
+
+    st.info(
+        "5-minute demo: A sample tactical situation is "
+        "preloaded below. Review the context and select "
+        "Analyse Scenario to see how Football Decision "
+        "Intelligence compares the available options."
     )
 
     if (
